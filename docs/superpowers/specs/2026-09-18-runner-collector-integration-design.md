@@ -80,7 +80,7 @@ src/trading/
 вычерпывает раннер:
 
 ```python
-async with open_crawler(parser_cls, params=params, log=buffer.emit) as crawler:
+async with open_crawler(parser_cls, params=params, log=buffer.log) as crawler:
     async for item in crawler.stream():
         sink.write(item)
 ```
