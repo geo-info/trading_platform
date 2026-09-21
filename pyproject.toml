@@ -5,7 +5,7 @@ description = "Парсеры на collector-framework"
 requires-python = ">=3.11"
 dependencies = [
     "collector-framework>=0.0.1",
-    "tinydb>=4.9.0",
+    "pymongo>=4.9",
 ]
 
 [dependency-groups]

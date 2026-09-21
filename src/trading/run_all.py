@@ -5,6 +5,10 @@
     uv run python -m trading.run_all --max-pages 2    короткий прогон
     uv run python -m trading.run_all --list           что вообще есть
 
+Лоты всех площадок ложатся в одну коллекцию Mongo, площадку в ней различает
+поле ``source``. Адрес базы берётся из ``--mongo-uri``, иначе из ``$MONGO_URI``,
+иначе локальная ``mongodb://localhost:27017``.
+
 Площадки обходятся **параллельно**, и это тот случай, когда параллелизм
 оправдан: серверы разные, друг другу они не мешают. Внутри одной площадки
 конкуренция, наоборот, бесполезна — упор там в пропускную способность самого
@@ -28,9 +32,10 @@ from types import ModuleType
 from typing import Any
 
 from collector import Parser, open_crawler
+from pymongo import AsyncMongoClient
 
 from trading import parsers as parsers_pkg
-from trading.storage import TinyDbStore
+from trading.storage import DEFAULT_URI, MongoStore, mongo_uri
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +47,6 @@ class Platform:
     key: str
     parser_cls: type[Parser]
     module: ModuleType
-
-    @property
-    def db_path(self) -> Any:
-        return self.module.DB_PATH
 
 
 @dataclass(slots=True)
@@ -81,11 +82,8 @@ def discover() -> list[Platform]:
         ]
         own = [cls for cls in classes if getattr(cls, "name", None) == source]
 
-        if source is None or not hasattr(module, "DB_PATH") or len(own) != 1:
-            broken.append(
-                f"{info.name}: SOURCE={source!r}, DB_PATH={'есть' if hasattr(module, 'DB_PATH') else 'нет'}, "
-                f"классов с name == SOURCE: {len(own)}"
-            )
+        if source is None or len(own) != 1:
+            broken.append(f"{info.name}: SOURCE={source!r}, классов с name == SOURCE: {len(own)}")
             continue
 
         found.append(Platform(key=source, parser_cls=own[0], module=module))
@@ -93,7 +91,7 @@ def discover() -> list[Platform]:
     if broken:
         raise RuntimeError(
             "Модули в trading.parsers не соответствуют контракту "
-            "(нужны SOURCE, DB_PATH и ровно один Parser с name == SOURCE):\n  " + "\n  ".join(broken)
+            "(нужны SOURCE и ровно один Parser с name == SOURCE):\n  " + "\n  ".join(broken)
         )
     return found
 
@@ -113,16 +111,18 @@ def make_log(key: str, clock: float, quiet: bool) -> Any:
     return log
 
 
-async def crawl_one(platform: Platform, params: dict[str, str], clock: float, quiet: bool) -> Result:
-    """Обойти одну площадку, складывая лоты в её собственное хранилище."""
+async def crawl_one(
+    platform: Platform, params: dict[str, str], clock: float, quiet: bool, client: AsyncMongoClient
+) -> Result:
+    """Обойти одну площадку, складывая лоты в общую коллекцию под её ``source``."""
     result = Result(key=platform.key)
     started = time.monotonic()
     log = make_log(platform.key, clock, quiet)
     try:
-        with TinyDbStore(platform.db_path) as store:
+        async with MongoStore(platform.key, client=client) as store:
             async with open_crawler(platform.parser_cls, params=params, log=log) as crawler:
                 async for item in crawler.stream():
-                    if store.upsert(item):
+                    if await store.upsert(item):
                         result.new += 1
                     else:
                         result.updated += 1
@@ -136,10 +136,26 @@ async def crawl_one(platform: Platform, params: dict[str, str], clock: float, qu
     return result
 
 
-async def run(platforms: list[Platform], params: dict[str, str], quiet: bool) -> list[Result]:
-    """Запустить все площадки разом, печатая ход обхода по мере поступления."""
+async def run(platforms: list[Platform], params: dict[str, str], quiet: bool, uri: str) -> list[Result]:
+    """Запустить все площадки разом, печатая ход обхода по мере поступления.
+
+    Клиент Mongo один на весь запуск: у него внутри свой пул соединений, и
+    шестнадцать отдельных клиентов — это шестнадцать пулов и шестнадцать
+    наборов фоновых задач мониторинга там, где хватает одного набора.
+    """
     clock = time.monotonic()
-    tasks = [asyncio.create_task(crawl_one(p, params, clock, quiet), name=p.key) for p in platforms]
+    client: AsyncMongoClient = AsyncMongoClient(uri)
+    try:
+        results = await _gather(platforms, params, clock, quiet, client)
+    finally:
+        await client.close()
+    return results
+
+
+async def _gather(
+    platforms: list[Platform], params: dict[str, str], clock: float, quiet: bool, client: AsyncMongoClient
+) -> list[Result]:
+    tasks = [asyncio.create_task(crawl_one(p, params, clock, quiet, client), name=p.key) for p in platforms]
     print(f"запущено площадок разом: {len(tasks)} — {', '.join(p.key for p in platforms)}\n", flush=True)
 
     results: list[Result] = []
@@ -197,6 +213,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("keys", nargs="*", help="какие площадки обойти; по умолчанию все")
     ap.add_argument("--max-pages", type=int, metavar="N", help="предел страниц листинга на площадку")
     ap.add_argument("--list", action="store_true", help="показать список площадок и выйти")
+    ap.add_argument(
+        "--mongo-uri",
+        metavar="URI",
+        default=None,
+        help=f"адрес Mongo; по умолчанию $MONGO_URI или {DEFAULT_URI}",
+    )
     ap.add_argument("-v", "--verbose", action="store_true", help="добавить логи самого фреймворка")
     ap.add_argument("-q", "--quiet", action="store_true", help="только итоговая таблица")
     args = ap.parse_args(argv)
@@ -228,7 +250,9 @@ def main(argv: list[str] | None = None) -> int:
             p.module.MAX_PAGES = args.max_pages
 
     started = time.monotonic()
-    results = asyncio.run(run(platforms, params={}, quiet=args.quiet))
+    uri = args.mongo_uri or mongo_uri()
+    print(f"пишем в {uri}\n", flush=True)
+    results = asyncio.run(run(platforms, params={}, quiet=args.quiet, uri=uri))
     code = report(results)
     print(f"всего заняло {time.monotonic() - started:.1f}с")
     return code

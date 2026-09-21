@@ -24,19 +24,15 @@ import logging
 import re
 import sys
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from collector import Parser, Response, Settings, open_crawler
 from parsel import Selector
 
-from trading.storage import TinyDbStore
+from trading.storage import MongoStore
 
 SOURCE = "gloria_service"
 MAX_PAGES = 21
-
-#: Корень репозитория: src/trading/parsers/gloria_service.py -> вверх на четыре уровня.
-DB_PATH = Path(__file__).resolve().parents[3] / "data" / f"{SOURCE}.json"
 
 
 def clean(value: str | None) -> str | None:
@@ -195,20 +191,21 @@ class GloriaService(Parser):
         yield item
 
 
-async def crawl(store: TinyDbStore) -> tuple[Any, int, int]:
+async def crawl() -> tuple[Any, int, int, int, str]:
     """Обойти площадку, складывая лоты в хранилище по мере поступления.
 
     Поток, а не ``collect()``: айтемы пишутся сразу, и обход, прерванный на
     середине, оставляет после себя всё, что успел собрать.
     """
     new = updated = 0
-    async with open_crawler(GloriaService) as crawler:
-        async for item in crawler.stream():
-            if store.upsert(item):
-                new += 1
-            else:
-                updated += 1
-    return crawler.stats, new, updated
+    async with MongoStore(SOURCE) as store:
+        async with open_crawler(GloriaService) as crawler:
+            async for item in crawler.stream():
+                if await store.upsert(item):
+                    new += 1
+                else:
+                    updated += 1
+        return crawler.stats, new, updated, await store.count(), store.target
 
 
 def main() -> None:
@@ -219,13 +216,11 @@ def main() -> None:
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    with TinyDbStore(DB_PATH) as store:
-        stats, new, updated = asyncio.run(crawl(store))
-        total = store.count()
+    stats, new, updated, total, target = asyncio.run(crawl())
 
     print(f"лотов получено {stats.items}: новых {new}, обновлено {updated}")
     print(f"запросов {stats.requests}, ошибок {stats.errors}, причина остановки {stats.reason}")
-    print(f"в хранилище {total} документов -> {DB_PATH}")
+    print(f"в хранилище {total} документов -> {target}")
 
 
 if __name__ == "__main__":
