@@ -1,0 +1,49 @@
+# Mongo для локальной разработки: `docker compose up -d`, и парсерам есть куда писать.
+#
+# Своего Dockerfile здесь нет намеренно — официальный образ делает ровно то,
+# что нужно, а собственная сборка поверх него означала бы поддерживать свой
+# образ ради нуля изменений. Всё, что нам нужно настроить, настраивается
+# параметрами запуска.
+#
+# Индекс по (source, lot_id) заводит сам код при открытии хранилища
+# (MongoStore.__aenter__), поэтому init-скрипта в образе нет: одна база —
+# один источник правды о схеме, и это приложение.
+
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: trading-mongo
+    restart: unless-stopped
+    # Порт открыт только на петлевом интерфейсе. Без этого Docker пробивает
+    # правило в iptables мимо хостового фаервола, и база без пароля оказывается
+    # видна из сети — классический способ отдать данные наружу, не заметив.
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    command: ["--bind_ip_all", "--wiredTigerCacheSizeGB", "1"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Смотреть собранные лоты глазами: `docker compose --profile tools up -d`.
+  # Под профилем, чтобы обычный `up` поднимал только базу.
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: trading-mongo-express
+    profiles: ["tools"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongo:27017
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
