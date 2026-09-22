@@ -1,4 +1,8 @@
-"""ЮЭТП — банкротные торги, движок iTender (ASP.NET WebForms).
+"""Базовый парсер площадок на движке iTender (Fogsoft).
+
+Шестнадцать площадок на этом движке отличаются друг от друга доменом и парой
+настроек — вёрстка у них одна. Поэтому разбор, пагинация и обход живут здесь,
+а модуль площадки — это её имя, адрес и то, чем она особенная.
 
 Обход в два уровня: листинг даёт строку таблицы и ссылку на лот, страница лота
 — подробности. Айтем отдаётся один на лот, уже со сведениями обеих страниц.
@@ -14,7 +18,11 @@
 там же, где на первом, — в тегах ``input``. Одна форма ответа на весь обход,
 одна функция для токенов, никаких развилок по номеру страницы.
 
-    uv run python -m trading.parsers.yuzhnyy_etp
+Новая площадка::
+
+    class Centerr(TenderFogsoft):
+        name = "centerr"
+        DOMAIN = "https://bankrupt.centerr.ru"
 """
 
 from __future__ import annotations
@@ -23,16 +31,26 @@ import asyncio
 import logging
 import re
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from collector import Parser, Response, Settings, open_crawler
 from parsel import Selector
 
-from trading.storage import MongoStore
+from core.db import MongoStore
+from core.settings import settings as config
 
-SOURCE = "yuzhnyy_etp"
-MAX_PAGES = 21
+#: Настройки HTTP, общие для всех площадок движка. Площадка со своей
+#: особенностью narrows их через ``replace`` — см. arbbitlot и meta_invest.
+#:
+#: concurrency остаётся единицей, и это измерено, а не осторожность: площадка
+#: обрабатывает наши запросы по одному, поэтому латентность растёт ровно
+#: пропорционально числу воркеров, а запросов в секунду не прибавляется.
+BASE_SETTINGS = Settings(concurrency=1, delay=config.delay, timeout=config.http_timeout)
+
+
+# ── разбор ───────────────────────────────────────────────────────────────────
 
 
 def clean(value: str | None) -> str | None:
@@ -43,17 +61,31 @@ def clean(value: str | None) -> str | None:
 
 
 def cell(node: Selector) -> str | None:
+    """Текст ячейки мимо ссылок.
+
+    Рядом со значением цены сидит рекламная кнопка «Купить с агентом», и без
+    этого она приклеивается к сумме. Отбрасываем ссылки целиком: на разобранных
+    страницах лотов других ссылок в ячейках значений нет.
+    """
     return clean(" ".join(node.xpath(".//text()[not(ancestor::a)]").getall()))
 
 
 def extract_initial_tokens(page: Selector) -> tuple[str | None, str | None]:
-    """Extract tokens from the initial HTML page (hidden form fields)."""
-    cviewstate = page.xpath('//input[@id="__CVIEWSTATE"]/@value').get()
-    eventvalidation = page.xpath('//input[@id="__EVENTVALIDATION"]/@value').get()
-    return cviewstate, eventvalidation
+    """``(__CVIEWSTATE, __EVENTVALIDATION)`` из скрытых полей формы."""
+    return (
+        page.xpath('//input[@id="__CVIEWSTATE"]/@value').get(),
+        page.xpath('//input[@id="__EVENTVALIDATION"]/@value').get(),
+    )
 
 
 def find_next_target(page: Selector, num_page: int) -> str | None:
+    """EVENTTARGET следующей страницы; ``None`` — текущая последняя.
+
+    Номер и ``>>`` ищутся одним запросом, потому что ``.get()`` берёт первую
+    ссылку по документу, а в пейджере номера всегда стоят раньше ``>>``.
+    Значит переход на следующий блок срабатывает ровно тогда, когда нужного
+    номера в текущем блоке нет. Ссылка ``<<`` под предикат не подходит.
+    """
     next_num, block = f'normalize-space()="{num_page + 1}"', 'normalize-space()=">>"'
     href = page.xpath(f'(//td[@class="pager"])[1]//a[{next_num} or {block}]/@href').get()
     match = re.search(r"__doPostBack\('([^']+)'", href or "")
@@ -73,8 +105,7 @@ def build_payload(target: str, cviewstate: str, eventvalidation: str) -> dict[st
 def parse_rows(page: Selector) -> list[dict[str, Any]]:
     """Строки таблицы листинга.
 
-    Порядок колонок задан вёрсткой и от площадки к площадке разный, поэтому
-    разбор идёт по номерам ячеек, а не по заголовкам: заголовок — это текст
+    Разбор идёт по номерам ячеек, а не по заголовкам: заголовок — это текст
     для человека, его переформулируют, не трогая разметку.
     """
     rows = []
@@ -82,10 +113,9 @@ def parse_rows(page: Selector) -> list[dict[str, Any]]:
         cells = tr.xpath("./td")
         if len(cells) < 11:
             continue
-        lot_url = tr.xpath(".//a[contains(@href,'/lots/view/')]/@href").get()
         rows.append(
             {
-                "lot_url": clean(lot_url),
+                "lot_url": clean(tr.xpath(".//a[contains(@href,'/lots/view/')]/@href").get()),
                 "trade_id": clean(cells[0].xpath("string(.)").get()),
                 "auction_name": clean(cells[1].xpath("string(.)").get()),
                 "lot_num": clean(cells[2].xpath("string(.)").get()),
@@ -128,15 +158,32 @@ def parse_detail(page: Selector) -> dict[str, dict[str, str | None]]:
                 pairs[label] = cell(value)
 
         if any(pairs.values()):
-            sections[re.compile(r"\s*№\s*\S+\s*$").sub("", legend)] = pairs
+            # Номер в конце легенды («Информация о лоте №1») отличается у
+            # каждого лота, и ключ раздела с ним был бы одноразовым.
+            sections[re.sub(r"\s*№\s*\S+\s*$", "", legend)] = pairs
 
     return sections
 
 
-class YuzhnyyEtp(Parser):
-    name = SOURCE
-    start_urls = ["https://torgibankrot.ru/public/purchases-all/"]
-    settings = Settings(delay=0.5)
+# ── парсер ───────────────────────────────────────────────────────────────────
+
+
+class TenderFogsoft(Parser):
+    """Наследнику достаточно задать ``name`` и ``DOMAIN``."""
+
+    DOMAIN: ClassVar[str]
+    LISTING_PATH: ClassVar[str] = "public/purchases-all/"
+    #: Предохранитель обхода. Без потолка ошибка в пагинации крутится вечно.
+    MAX_PAGES: ClassVar[int] = config.max_pages
+
+    settings = BASE_SETTINGS
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        # start_urls выводится из домена, чтобы не повторять путь листинга
+        # в каждом из шестнадцати модулей.
+        if "DOMAIN" in cls.__dict__:
+            cls.start_urls = [f"{cls.DOMAIN.rstrip('/')}/{cls.LISTING_PATH}"]
 
     async def parse(self, response: Response) -> Any:
         """Листинг: раздать запросы на страницы лотов и шагнуть на следующую."""
@@ -149,8 +196,8 @@ class YuzhnyyEtp(Parser):
             if row["lot_url"]:
                 yield response.follow(row["lot_url"], callback=self.parse_lot, metadata={"row": row})
 
-        if num_page >= MAX_PAGES:
-            await self.log(f"остановка: предел MAX_PAGES={MAX_PAGES}")
+        if num_page >= self.MAX_PAGES:
+            await self.log(f"остановка: предел MAX_PAGES={self.MAX_PAGES}")
             return
 
         next_target = find_next_target(page, num_page)
@@ -174,32 +221,43 @@ class YuzhnyyEtp(Parser):
     async def parse_lot(self, response: Response) -> Any:
         """Страница лота: слить строку листинга с подробностями в один айтем."""
         url = response.request.url
-        match = re.compile(r"/lots/view/(\d+)").search(url)
+        match = re.search(r"/lots/view/(\d+)", url)
         if match is None:
             # Без идентификатора документ нечем ключевать в хранилище.
             await self.log(f"пропуск: в ссылке нет номера лота — {url}")
             return
 
-        item = {
-            "source": SOURCE,
+        yield {
+            "source": self.name,
             "lot_id": match.group(1),
             "url": url,
             **response.metadata["row"],
             "detail": parse_detail(response.selector()),
             "fetched_at": datetime.now(UTC).isoformat(),
         }
-        yield item
 
 
-async def crawl() -> tuple[Any, int, int, int, str]:
+def narrow(**overrides: Any) -> Settings:
+    """Настройки площадки: общие плюс её особенность.
+
+    Через ``replace``, а не конструктором, чтобы площадка со своей причудой
+    не теряла общие ``delay`` и ``timeout``, когда те поменяются.
+    """
+    return replace(BASE_SETTINGS, **overrides)
+
+
+# ── запуск одной площадки ────────────────────────────────────────────────────
+
+
+async def crawl(parser_cls: type[TenderFogsoft]) -> tuple[Any, int, int, int, str]:
     """Обойти площадку, складывая лоты в хранилище по мере поступления.
 
     Поток, а не ``collect()``: айтемы пишутся сразу, и обход, прерванный на
     середине, оставляет после себя всё, что успел собрать.
     """
     new = updated = 0
-    async with MongoStore(SOURCE) as store:
-        async with open_crawler(YuzhnyyEtp) as crawler:
+    async with MongoStore(parser_cls.name) as store:
+        async with open_crawler(parser_cls) as crawler:
             async for item in crawler.stream():
                 if await store.upsert(item):
                     new += 1
@@ -208,7 +266,8 @@ async def crawl() -> tuple[Any, int, int, int, str]:
         return crawler.stats, new, updated, await store.count(), store.target
 
 
-def main() -> None:
+def main(parser_cls: type[TenderFogsoft]) -> None:
+    """Точка входа модуля площадки: ``python -m tp.centerr``."""
     # Логи парсера и фреймворка идут через stdlib logging уровнем INFO, а у root
     # по умолчанию нет обработчиков и порог WARNING — без basicConfig всё INFO
     # молча отбрасывается. Консоль Windows вдобавок не UTF-8, а в логах кириллица.
@@ -216,12 +275,8 @@ def main() -> None:
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    stats, new, updated, total, target = asyncio.run(crawl())
+    stats, new, updated, total, target = asyncio.run(crawl(parser_cls))
 
     print(f"лотов получено {stats.items}: новых {new}, обновлено {updated}")
     print(f"запросов {stats.requests}, ошибок {stats.errors}, причина остановки {stats.reason}")
     print(f"в хранилище {total} документов -> {target}")
-
-
-if __name__ == "__main__":
-    main()

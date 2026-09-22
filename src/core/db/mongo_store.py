@@ -21,26 +21,13 @@ CPU. Шестнадцать площадок в одном event loop делил
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 from typing import Any
 
 from pymongo import AsyncMongoClient
 
-from trading.storage.base import KEY_FIELDS, Store, key_of
-
-DEFAULT_URI = "mongodb://localhost:27017"
-DEFAULT_DB = "trading"
-DEFAULT_COLLECTION = "lots"
-
-
-def mongo_uri() -> str:
-    """Адрес Mongo: переменная окружения или локальная база по умолчанию."""
-    return os.getenv("MONGO_URI", DEFAULT_URI)
-
-
-def mongo_db_name() -> str:
-    return os.getenv("MONGO_DB", DEFAULT_DB)
+from core.db.base import KEY_FIELDS, Store, key_of
+from core.settings import settings
 
 
 class MongoStore(Store):
@@ -58,12 +45,12 @@ class MongoStore(Store):
         client: Any | None = None,
         uri: str | None = None,
         db_name: str | None = None,
-        collection: str = DEFAULT_COLLECTION,
+        collection: str | None = None,
     ) -> None:
         self.source = source
-        self.uri = uri or mongo_uri()
-        self.db_name = db_name or mongo_db_name()
-        self.collection_name = collection
+        self.uri = uri or settings.mongo_uri
+        self.db_name = db_name or settings.mongo_db
+        self.collection_name = collection or settings.mongo_collection
         # Свой клиент закрываем, чужой — нет: его одолжили, и закрыть его
         # значит оборвать соседние площадки на середине обхода.
         self._own_client = client is None

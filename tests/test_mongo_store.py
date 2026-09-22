@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from core.db import MongoStore
 from tests.fake_mongo import FakeClient
-from trading.storage import MongoStore
 
 LOT = {"source": "bep", "lot_id": "1", "price": "100,00"}
 

@@ -32,16 +32,51 @@ docker compose exec mongo mongosh trading --eval 'db.lots.countDocuments({source
 ## Обход
 
 ```bash
-uv sync                                           # зависимости
-uv run python -m trading.run_all                  # все площадки разом
-uv run python -m trading.run_all centerr etb      # только названные
-uv run python -m trading.run_all --max-pages 2    # короткий прогон
-uv run python -m trading.run_all --list           # что вообще есть
-uv run python -m trading.parsers.bep              # одна площадка отдельно
+uv sync                                                # зависимости
+uv run python -m tp.platform.run_all                   # все площадки разом
+uv run python -m tp.platform.run_all centerr etb       # только названные
+uv run python -m tp.platform.run_all --max-pages 2     # короткий прогон
+uv run python -m tp.platform.run_all --list            # что вообще есть
+uv run python -m tp.platform.bep                       # одна площадка отдельно
 ```
 
-Адрес базы берётся из `--mongo-uri`, иначе из `$MONGO_URI`, иначе локальная
-`mongodb://localhost:27017`. Имя базы — из `$MONGO_DB`, по умолчанию `trading`.
+## Настройки
+
+Всё окружение читается в одном месте — `core/settings.py` на `pydantic-settings`.
+Значения по умолчанию подобраны так, что без единой переменной работает
+локальная Mongo из `compose.yaml`.
+
+| Переменная | По умолчанию | Смысл |
+|---|---|---|
+| `MONGO_URI` | `mongodb://localhost:27017` | адрес базы |
+| `MONGO_DB` | `trading` | имя базы |
+| `MONGO_COLLECTION` | `lots` | коллекция, общая на все площадки |
+| `MAX_PAGES` | `21` | предохранитель: страниц листинга на площадку |
+| `DELAY` | `0.5` | пауза между запросами к одной площадке, с |
+| `PLATFORM_CONCURRENCY` | `16` | сколько площадок обходить разом |
+| `HTTP_TIMEOUT` | `60` | таймаут запроса, с |
+
+Берётся из окружения и из `.env` в корне; переменные окружения приоритетнее
+файла, чтобы настройки CI или docker не перетирались чьим-то локальным `.env`.
+
+## Устройство
+
+```
+core/settings.py      настройки из окружения и .env
+core/db/              Store — интерфейс, MongoStore — реализация
+tp/base.py            TenderFogsoft: разбор, пагинация, обход
+tp/platform/*.py      по файлу на площадку: имя, домен, особенность
+tp/hooks/             сквозные обязанности (проверка inprotect)
+tp/certs/             недостающие звенья TLS-цепочек
+```
+
+Площадка — это несколько строк:
+
+```python
+class Centerr(TenderFogsoft):
+    name = "centerr"
+    DOMAIN = "https://bankrupt.centerr.ru"
+```
 
 ## Разработка
 

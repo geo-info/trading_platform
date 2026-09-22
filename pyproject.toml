@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "collector-framework>=0.0.1",
     "pymongo>=4.9",
+    "pydantic-settings>=2.15.0"
 ]
 
 [dependency-groups]
@@ -25,7 +26,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/trading"]
+packages = ["src/core", "src/tp"]
 
 [tool.ruff]
 line-length = 110
@@ -37,7 +38,7 @@ select = ["E", "F", "I", "UP", "B", "C4"]
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["trading"]
+known-first-party = ["core", "tp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import inspect
 
-from trading.run_all import discover
+from tp.base import TenderFogsoft, crawl
+from tp.platform.run_all import discover
 
 EXPECTED = {
     "alfalot",
@@ -36,9 +37,15 @@ def test_у_каждой_площадки_свой_класс_и_стартов�
     assert len({p.parser_cls.start_urls[0] for p in platforms}) == len(platforms)
 
 
-def test_парсеры_пишут_асинхронно() -> None:
-    """crawl() каждой площадки — корутина и больше не принимает хранилище извне."""
+def test_обход_асинхронный_и_общий_на_все_площадки() -> None:
+    """crawl() переехал в базу и принимает класс площадки, а не живёт в каждом модуле."""
+    assert inspect.iscoroutinefunction(crawl)
+    assert list(inspect.signature(crawl).parameters) == ["parser_cls"]
+
+
+def test_площадки_наследуют_базовый_класс() -> None:
     for platform in discover():
-        crawl = platform.module.crawl
-        assert inspect.iscoroutinefunction(crawl), platform.key
-        assert not inspect.signature(crawl).parameters, platform.key
+        cls = platform.parser_cls
+        assert issubclass(cls, TenderFogsoft) and cls is not TenderFogsoft, platform.key
+        # start_urls выводится из DOMAIN в __init_subclass__, а не пишется руками.
+        assert cls.start_urls == [f"{cls.DOMAIN.rstrip('/')}/{cls.LISTING_PATH}"], platform.key
