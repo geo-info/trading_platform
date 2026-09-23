@@ -74,3 +74,23 @@ async def test_после_закрытия_хранилище_не_пишет() 
     await s.close()  # повторное закрытие безвредно
     with pytest.raises(RuntimeError, match="уже закрыто"):
         await s.upsert(LOT)
+
+
+async def test_первое_и_последнее_появление_лота() -> None:
+    client = FakeClient()
+    async with MongoStore("bep", client=client, run_id="r1") as s:
+        await s.upsert(LOT)
+    (doc,) = client["trading"]["lots"].docs.values()
+    first = doc["first_seen_at"]
+    assert doc["last_seen_at"] == first and doc["run_id"] == "r1"
+
+    async with MongoStore("bep", client=client, run_id="r2") as s:
+        await s.upsert(LOT)
+    (doc,) = client["trading"]["lots"].docs.values()
+    assert doc["first_seen_at"] == first  # вставка не повторяется
+    assert doc["last_seen_at"] >= first and doc["run_id"] == "r2"
+
+
+def test_run_id_по_умолчанию_свой_у_каждого_хранилища() -> None:
+    client = FakeClient()
+    assert store(client).run_id != store(client).run_id

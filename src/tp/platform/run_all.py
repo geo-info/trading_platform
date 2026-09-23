@@ -1,9 +1,9 @@
 """Обход всех площадок разом.
 
     uv run python -m tp.platform.run_all                  все площадки
-    uv run python -m tp.run_all centerr etb      только названные
-    uv run python -m tp.run_all --max-pages 2    короткий прогон
-    uv run python -m tp.run_all --list           что вообще есть
+    uv run python -m tp.platform.run_all centerr etb      только названные
+    uv run python -m tp.platform.run_all --max-pages 2    короткий прогон
+    uv run python -m tp.platform.run_all --list           что вообще есть
 
 Площадки обходятся **параллельно**, и это тот случай, когда параллелизм
 оправдан: серверы разные, друг другу они не мешают. Внутри одной площадки
@@ -30,6 +30,7 @@ from collector import open_crawler
 from pymongo import AsyncMongoClient
 
 from core.db import MongoStore
+from core.db.mongo_store import new_run_id
 from core.settings import settings as config
 from tp import platform as platform_pkg
 from tp.base import TenderFogsoft
@@ -112,13 +113,15 @@ def make_log(key: str, clock: float, quiet: bool) -> Any:
     return log
 
 
-async def crawl_one(platform: Platform, clock: float, quiet: bool, client: AsyncMongoClient) -> Result:
+async def crawl_one(
+    platform: Platform, clock: float, quiet: bool, client: AsyncMongoClient, run_id: str
+) -> Result:
     """Обойти одну площадку, складывая лоты в общую коллекцию под её ``source``."""
     result = Result(key=platform.key)
     started = time.monotonic()
     log = make_log(platform.key, clock, quiet)
     try:
-        async with MongoStore(platform.key, client=client) as store:
+        async with MongoStore(platform.key, client=client, run_id=run_id) as store:
             async with open_crawler(platform.parser_cls, log=log) as crawler:
                 async for item in crawler.stream():
                     if await store.upsert(item):
@@ -144,16 +147,19 @@ async def run(platforms: list[Platform], quiet: bool) -> list[Result]:
     """
     clock = time.monotonic()
     gate = asyncio.Semaphore(config.platform_concurrency)
+    # Одна метка на весь запуск: «что видел последний обход» — один запрос.
+    run_id = new_run_id()
 
     async def bound(platform: Platform) -> Result:
         async with gate:
-            return await crawl_one(platform, clock, quiet, client)
+            return await crawl_one(platform, clock, quiet, client, run_id)
 
     client: AsyncMongoClient = AsyncMongoClient(config.mongo_uri)
     try:
         tasks = [asyncio.create_task(bound(p), name=p.key) for p in platforms]
         print(
-            f"запущено площадок: {len(tasks)}, одновременно до {config.platform_concurrency}\n",
+            f"запущено площадок: {len(tasks)}, одновременно до {config.platform_concurrency}, "
+            f"run_id {run_id}\n",
             flush=True,
         )
 

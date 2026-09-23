@@ -3,7 +3,7 @@
 Настоящей базы в тестах нет: поднимать mongod ради проверки того, что мы
 правильно собираем фильтр и правильно читаем ответ драйвера, — дорого и
 хрупко. Подделка повторяет контракт ``update_one``/``count_documents``
-настолько, насколько он нам важен: ключ, слияние через ``$set`` и признак
+настолько, насколько он нам важен: ключ, слияние через ``$set``, ``$setOnInsert`` только при вставке и признак
 вставки в ``upserted_id``.
 """
 
@@ -32,7 +32,10 @@ class FakeCollection:
         existed = key in self.docs
         if not existed and not upsert:
             return FakeResult(None)
-        self.docs.setdefault(key, {}).update(update["$set"])
+        doc = self.docs.setdefault(key, {})
+        if not existed:
+            doc.update(update.get("$setOnInsert", {}))
+        doc.update(update["$set"])
         return FakeResult(None if existed else f"oid-{len(self.docs)}")
 
     async def count_documents(self, filt: dict) -> int:

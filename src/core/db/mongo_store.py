@@ -22,7 +22,9 @@ CPU. Шестнадцать площадок в одном event loop делил
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from pymongo import AsyncMongoClient
 
@@ -46,8 +48,12 @@ class MongoStore(Store):
         uri: str | None = None,
         db_name: str | None = None,
         collection: str | None = None,
+        run_id: str | None = None,
     ) -> None:
         self.source = source
+        #: Метка запуска. ``run_all`` передаёт одну на все площадки, чтобы
+        #: «что видел последний обход» было одним запросом по run_id.
+        self.run_id = run_id or new_run_id()
         self.uri = uri or settings.mongo_uri
         self.db_name = db_name or settings.mongo_db
         self.collection_name = collection or settings.mongo_collection
@@ -75,7 +81,20 @@ class MongoStore(Store):
         return self
 
     async def upsert(self, item: Mapping[str, Any]) -> bool:
-        result = await self.collection.update_one(key_of(item), {"$set": dict(item)}, upsert=True)
+        """Записать лот, отметив, когда его видели впервые и в последний раз.
+
+        ``$set`` перезаписывает всё, что пришло с площадки, и без отдельных
+        отметок лот, который площадка давно убрала, не отличить от живого: у
+        обоих одинаково свежий вид. ``first_seen_at`` пишется только при
+        вставке (``$setOnInsert``), ``last_seen_at`` и ``run_id`` — каждый раз.
+        Лот, чей ``run_id`` отстал от последнего запуска, этим запуском не увиден.
+        """
+        now = datetime.now(UTC)
+        update = {
+            "$set": {**item, "last_seen_at": now, "run_id": self.run_id},
+            "$setOnInsert": {"first_seen_at": now},
+        }
+        result = await self.collection.update_one(key_of(item), update, upsert=True)
         return result.upserted_id is not None
 
     async def count(self) -> int:
@@ -85,3 +104,9 @@ class MongoStore(Store):
         client, self._client = self._client, None
         if client is not None and self._own_client:
             await client.close()
+
+
+def new_run_id() -> str:
+    """Метка запуска: время старта для глаз и хвост, чтобы два запуска в одну
+    секунду не слились."""
+    return f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}-{uuid4().hex[:6]}"
