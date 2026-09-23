@@ -104,6 +104,58 @@ def build_payload(target: str, cviewstate: str, eventvalidation: str) -> dict[st
     }
 
 
+#: Поля формы поиска над листингом: у всех площадок движка они внутри
+#: раскрывающейся панели, и её id входит в имя каждого поля.
+SEARCH_PANEL = "phExpandCollapse"
+
+
+def filter_reset_payload(page: Selector) -> dict[str, str] | None:
+    """Тело POST формы поиска со сброшенными фильтрами; ``None`` — сбрасывать нечего.
+
+    Площадка может открывать листинг с фильтром по умолчанию: centerr
+    показывает только «Прием заявок», и без сброса в базу не попадает ни один
+    завершённый лот. Сбрасываем не только статус, а любой выпадающий список,
+    где выбрано не «Все», — какой фильтр выставит следующая площадка, заранее
+    не знать.
+    """
+    selects = page.xpath(f"//select[contains(@name, '{SEARCH_PANEL}')]")
+    fields: dict[str, str] = {}
+    filtered = False
+    for select in selects:
+        first = select.xpath("./option[1]")
+        if clean(first.xpath("string(.)").get()) != "Все":
+            # Список без варианта «Все» — не фильтр, его не трогаем.
+            fields[select.attrib["name"]] = select.xpath("./option[@selected]/@value").get() or ""
+            continue
+        everything = first.attrib.get("value", "")
+        chosen = select.xpath("./option[@selected]/@value").get()
+        filtered |= chosen is not None and chosen != everything
+        fields[select.attrib["name"]] = everything
+    if not filtered:
+        return None
+
+    # Кнопка поиска стоит в панели первой, перед «Очистить».
+    button = page.xpath(f"//input[@type='submit'][contains(@name, '{SEARCH_PANEL}')][1]")
+    if not button:
+        return None
+    hidden = {
+        node.attrib["name"]: node.attrib.get("value", "")
+        for node in page.xpath("//input[@type='hidden'][@name]")
+    }
+    text = {
+        node.attrib["name"]: node.attrib.get("value", "")
+        for node in page.xpath(f"//input[not(@type) or @type='text'][contains(@name, '{SEARCH_PANEL}')]")
+    }
+    return {
+        **hidden,
+        **text,
+        **fields,
+        "__EVENTTARGET": "",
+        "__EVENTARGUMENT": "",
+        button[0].attrib["name"]: button[0].attrib.get("value", ""),
+    }
+
+
 def parse_rows(page: Selector) -> list[dict[str, Any]]:
     """Строки таблицы листинга.
 
@@ -258,6 +310,21 @@ class TenderFogsoft(Parser):
         """Листинг: раздать запросы на страницы лотов и шагнуть на следующую."""
         page = response.selector()
         num_page = response.metadata.get("page", 1)
+
+        if num_page == 1 and not response.metadata.get("filters_reset"):
+            payload = filter_reset_payload(page)
+            if payload is not None:
+                # Строки этой страницы отфильтрованы — их не берём: та же первая
+                # страница придёт заново уже без фильтра.
+                await self.log("листинг открылся с фильтром — сбрасываю")
+                yield self.request(
+                    response.request.url,
+                    method="POST",
+                    data=payload,
+                    metadata={"page": 1, "filters_reset": True},
+                )
+                return
+
         rows = parse_rows(page)
         await self.log(f"{response.status} | страница {num_page} | лотов {len(rows)}")
 
