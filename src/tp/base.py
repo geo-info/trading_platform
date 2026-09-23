@@ -39,6 +39,8 @@ from collector import Parser, Response, Settings, open_crawler
 from parsel import Selector
 
 from core.db import MongoStore
+from core.lot import Lot
+from core.parsing import parse_price
 from core.settings import settings as config
 
 #: Настройки HTTP, общие для всех площадок движка. Площадка со своей
@@ -194,6 +196,44 @@ def parse_detail(page: Selector) -> dict[str, dict[str, Value]]:
     return sections
 
 
+def parse_attachments(page: Selector) -> list[dict[str, Any]]:
+    """Документы лота: имя, ссылка, подписан ли электронной подписью."""
+    attachments: list[dict[str, Any]] = []
+    for row in page.xpath('//tr[contains(@class, "attachment-grid-row")]'):
+        link = row.xpath(".//a[@href]")
+        name = clean(link.xpath("string(.)").get())
+        url = link.xpath("./@href").get()
+        if not name and not url:
+            continue
+        signed = bool(row.xpath('.//*[contains(@class, "certOk")]'))
+        attachments.append({"name": name, "url": url, "signed": signed})
+    return attachments
+
+
+def parse_price_schedule(page: Selector) -> list[dict[str, str]]:
+    """График снижения цены — есть только у публичного предложения.
+
+    Раздел — грид без пар ``tdTitle``/``tdContent``, поэтому ``parse_detail``
+    его не видит, и разбирается он отдельно: строка грида -> {заголовок: ячейка}.
+    """
+    fieldset = page.xpath('//fieldset[legend[contains(., "Интервалы снижения цены")]]')
+    if not fieldset:
+        return []
+    headers = [
+        clean(td.xpath("string(.)").get()) or ""
+        for td in fieldset.xpath('(.//tr[contains(@class, "gridHeader")])[1]/td')
+    ]
+    if not headers:
+        return []
+    schedule: list[dict[str, str]] = []
+    for row in fieldset.xpath('.//tr[contains(@class, "gridRow")]'):
+        cells = [clean(td.xpath("string(.)").get()) or "" for td in row.xpath("./td")]
+        if len(cells) != len(headers):
+            continue
+        schedule.append(dict(zip(headers, cells, strict=True)))
+    return schedule
+
+
 # ── парсер ───────────────────────────────────────────────────────────────────
 
 
@@ -248,7 +288,11 @@ class TenderFogsoft(Parser):
         )
 
     async def parse_lot(self, response: Response) -> Any:
-        """Страница лота: слить строку листинга с подробностями в один айтем."""
+        """Страница лота: слить строку листинга с подробностями в один айтем.
+
+        Айтем собирается моделью ``core.lot.Lot``: она типизирует цену и сроки
+        листинга, а разделы страницы кладёт в ``extra`` как есть.
+        """
         url = response.request.url
         match = re.search(r"/lots/view/(\d+)", url)
         if match is None:
@@ -256,14 +300,35 @@ class TenderFogsoft(Parser):
             await self.log(f"пропуск: в ссылке нет номера лота — {url}")
             return
 
-        yield {
-            "source": self.name,
-            "lot_id": match.group(1),
-            "url": url,
-            **response.metadata["row"],
-            "detail": parse_detail(response.selector()),
-            "fetched_at": datetime.now(UTC).isoformat(),
-        }
+        row, page = response.metadata["row"], response.selector()
+        lot = Lot.model_validate(
+            {
+                "source": self.name,
+                "lot_id": match.group(1),
+                "url": url,
+                "fetched_at": datetime.now(UTC).isoformat(),
+                "trade_id": row["trade_id"],
+                "trade_number": row["trade_id"],
+                "lot_num": row["lot_num"],
+                "trade_type": row["trade_type"],
+                # Вторая колонка листинга: в coll-temp она звалась debtor,
+                # хотя там название торгов («Продажа имущества …»).
+                "debtor": row["auction_name"],
+                "organizer": row["organizer"],
+                "winner": row["winner"],
+                "description": row["description"],
+                "lot_url": row["lot_url"],
+                "price": parse_price(row["price"]),
+                "price_raw": row["price"],
+                "status": row["status"],
+                "bidding_date": row["bids_end"],
+                "event_date": row["auction_date"],
+                "detail": parse_detail(page),
+                "attachments": parse_attachments(page),
+                "price_schedule": parse_price_schedule(page),
+            }
+        )
+        yield lot.model_dump()
 
 
 def narrow(**overrides: Any) -> Settings:

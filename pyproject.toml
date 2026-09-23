@@ -6,7 +6,9 @@ requires-python = ">=3.11"
 dependencies = [
     "collector-framework>=0.0.1",
     "pymongo>=4.9",
-    "pydantic-settings>=2.15.0"
+    "pydantic-settings>=2.15.0",
+    "pydantic>=2.13",
+    "tzdata>=2025.2",
 ]
 
 [dependency-groups]
