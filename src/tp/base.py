@@ -132,7 +132,29 @@ def parse_rows(page: Selector) -> list[dict[str, Any]]:
     return rows
 
 
-def parse_detail(page: Selector) -> dict[str, dict[str, str | None]]:
+#: Разделы страницы лота, которые к лоту не относятся. Форма загрузки документа
+#: выглядит как раздел с подписями, и отсеять её по пустоте нельзя: звёздочка
+#: обязательного поля в «Тип документа ( * )» читается как значение «*».
+SKIP_SECTIONS = frozenset({"Информация о документе"})
+
+#: Значение ячейки: текст или, если внутри грид, — список его строк.
+Value = str | list[str] | None
+
+
+def value_of(node: Selector) -> Value:
+    """Значение ячейки ``tdContent``.
+
+    Ячейка с гридом внутри (классификатор ЕФРСБ) — это список, а не текст: при
+    сборке в строку названия классов склеиваются через пробел, и «Жилые здания
+    (помещения) Земельные участки» обратно уже не разделить.
+    """
+    rows = node.xpath(".//tr[contains(@class,'gridRow') or contains(@class,'gridAltRow')]")
+    if rows:
+        return [text for row in rows if (text := cell(row))]
+    return cell(node)
+
+
+def parse_detail(page: Selector) -> dict[str, dict[str, Value]]:
     """Разделы страницы лота: легенда -> пары «подпись: значение».
 
     Страница собрана из ``<fieldset><legend>…</legend>`` с таблицами внутри,
@@ -140,27 +162,34 @@ def parse_detail(page: Selector) -> dict[str, dict[str, str | None]]:
     Это устойчивее, чем брать таблицы по порядку: вокруг ещё полтора десятка
     таблиц меню и форма входа.
 
-    Разделы без единого значения отбрасываются — так со страницы уходит форма
-    загрузки документа, у которой есть подписи, но нечего показать.
+    Значение ищется от своей подписи — соседняя ячейка в той же строке, — а не
+    сводится с подписями двумя списками по порядку. В вёрстке встречаются
+    ячейки-распорки ``tdContent`` без подписи (tendergarant, utender), и при
+    сведении по порядку всё, что ниже распорки, съезжает на одну подпись:
+    цена оказывается в «Шаге», счётчик заявок — в «Классификаторе ЕФРСБ».
+
+    Разделы без единого значения отбрасываются: подписи есть, показать нечего.
     """
-    sections: dict[str, dict[str, str | None]] = {}
+    sections: dict[str, dict[str, Value]] = {}
     for fieldset in page.xpath("//fieldset[legend]"):
         legend = clean(fieldset.xpath("./legend/text()").get())
         if not legend:
             continue
+        # Номер в конце легенды («Информация о лоте №1») отличается у
+        # каждого лота, и ключ раздела с ним был бы одноразовым.
+        legend = re.sub(r"\s*№\s*\S+\s*$", "", legend)
+        if legend in SKIP_SECTIONS:
+            continue
 
-        pairs: dict[str, str | None] = {}
-        titles = fieldset.xpath(".//td[@class='tdTitle']")
-        values = fieldset.xpath(".//td[@class='tdContent']")
-        for title, value in zip(titles, values, strict=False):
+        pairs: dict[str, Value] = {}
+        for title in fieldset.xpath(".//td[@class='tdTitle']"):
             label = (cell(title) or "").rstrip(":")
-            if label:
-                pairs[label] = cell(value)
+            value = title.xpath("following-sibling::td[1][@class='tdContent']")
+            if label and value:
+                pairs[label] = value_of(value[0])
 
         if any(pairs.values()):
-            # Номер в конце легенды («Информация о лоте №1») отличается у
-            # каждого лота, и ключ раздела с ним был бы одноразовым.
-            sections[re.sub(r"\s*№\s*\S+\s*$", "", legend)] = pairs
+            sections[legend] = pairs
 
     return sections
 
