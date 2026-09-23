@@ -44,6 +44,7 @@ uv sync                                                # зависимости
 uv run python -m tp.platform.run_all                   # все площадки разом
 uv run python -m tp.platform.run_all centerr etb       # только названные
 uv run python -m tp.platform.run_all --max-pages 2     # короткий прогон
+uv run python -m tp.platform.run_all --since 2026-06-01 # окно по дате
 uv run python -m tp.platform.run_all --list            # что вообще есть
 uv run python -m tp.platform.bep                       # одна площадка отдельно
 ```
@@ -59,7 +60,8 @@ uv run python -m tp.platform.bep                       # одна площадк
 | `MONGO_URI` | `mongodb://localhost:27017` | адрес базы |
 | `MONGO_DB` | `trading` | имя базы |
 | `MONGO_COLLECTION` | `lots` | коллекция, общая на все площадки |
-| `MAX_PAGES` | `21` | предохранитель: страниц листинга на площадку |
+| `MAX_PAGES` | `100` | предохранитель: страниц листинга на площадку |
+| `SINCE` | — | окно по дате `ГГГГ-ММ-ДД`: листать, пока на странице есть лот с приёмом заявок не раньше неё |
 | `DELAY` | `0.5` | пауза между запросами к одной площадке, с |
 | `PLATFORM_CONCURRENCY` | `16` | сколько площадок обходить разом |
 | `HTTP_TIMEOUT` | `60` | таймаут запроса, с |

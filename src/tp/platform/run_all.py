@@ -3,6 +3,7 @@
     uv run python -m tp.platform.run_all                  все площадки
     uv run python -m tp.platform.run_all centerr etb      только названные
     uv run python -m tp.platform.run_all --max-pages 2    короткий прогон
+    uv run python -m tp.platform.run_all --since 2026-01-01  окно по дате
     uv run python -m tp.platform.run_all --list           что вообще есть
 
 Площадки обходятся **параллельно**, и это тот случай, когда параллелизм
@@ -23,6 +24,7 @@ import pkgutil
 import sys
 import time
 from dataclasses import dataclass
+from datetime import date
 from importlib import import_module
 from typing import Any
 
@@ -221,6 +223,12 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Обход всех площадок разом.")
     ap.add_argument("keys", nargs="*", help="какие площадки обойти; по умолчанию все")
     ap.add_argument("--max-pages", type=int, metavar="N", help="предел страниц листинга на площадку")
+    ap.add_argument(
+        "--since",
+        type=date.fromisoformat,
+        metavar="ГГГГ-ММ-ДД",
+        help="листать, пока на странице есть лот с приёмом заявок не раньше этой даты",
+    )
     ap.add_argument("--list", action="store_true", help="показать список площадок и выйти")
     ap.add_argument("-v", "--verbose", action="store_true", help="добавить логи самого фреймворка")
     ap.add_argument("-q", "--quiet", action="store_true", help="только итоговая таблица")
@@ -245,11 +253,13 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         platforms = [p for p in platforms if p.key in set(args.keys)]
 
-    if args.max_pages is not None:
-        # MAX_PAGES — атрибут класса, и parse() читает его через self при
-        # каждом вызове: подмена здесь действует на весь запуск.
-        for p in platforms:
+    # MAX_PAGES и SINCE — атрибуты класса, и parse() читает их через self при
+    # каждом вызове: подмена здесь действует на весь запуск.
+    for p in platforms:
+        if args.max_pages is not None:
             p.parser_cls.MAX_PAGES = args.max_pages
+        if args.since is not None:
+            p.parser_cls.SINCE = args.since
 
     started = time.monotonic()
     results = asyncio.run(run(platforms, quiet=args.quiet))

@@ -32,7 +32,7 @@ import logging
 import re
 import sys
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, ClassVar
 
 from collector import Parser, Response, Settings, open_crawler
@@ -40,7 +40,7 @@ from parsel import Selector
 
 from core.db import MongoStore
 from core.lot import Lot
-from core.parsing import parse_price
+from core.parsing import parse_datetime, parse_price
 from core.settings import settings as config
 
 #: Настройки HTTP, общие для всех площадок движка. Площадка со своей
@@ -154,6 +154,19 @@ def filter_reset_payload(page: Selector) -> dict[str, str] | None:
         "__EVENTARGUMENT": "",
         button[0].attrib["name"]: button[0].attrib.get("value", ""),
     }
+
+
+def page_is_older(rows: list[dict[str, Any]], since: date) -> bool:
+    """Все лоты страницы закрыли приём заявок раньше ``since`` — дальше листать незачем.
+
+    Листинг отсортирован по номеру торгов, то есть по публикации, а даты
+    публикации в нём нет. Ближайшая замена — срок приёма заявок: он растёт
+    вместе с номером, хоть и не строго (у публичного предложения интервалы
+    тянутся месяцами). Поэтому останавливаемся не на первой старой строке, а
+    когда старая вся страница. Строки без даты решения не принимают.
+    """
+    deadlines = [d.date() for row in rows if (d := parse_datetime(row["bids_end"]))]
+    return bool(deadlines) and max(deadlines) < since
 
 
 def parse_rows(page: Selector) -> list[dict[str, Any]]:
@@ -296,6 +309,8 @@ class TenderFogsoft(Parser):
     LISTING_PATH: ClassVar[str] = "public/purchases-all/"
     #: Предохранитель обхода. Без потолка ошибка в пагинации крутится вечно.
     MAX_PAGES: ClassVar[int] = config.max_pages
+    #: Окно обхода по дате, см. ``Settings.since`` и ``page_is_older``.
+    SINCE: ClassVar[date | None] = config.since
 
     settings = BASE_SETTINGS
 
@@ -334,6 +349,10 @@ class TenderFogsoft(Parser):
 
         if num_page >= self.MAX_PAGES:
             await self.log(f"остановка: предел MAX_PAGES={self.MAX_PAGES}")
+            return
+
+        if self.SINCE is not None and page_is_older(rows, self.SINCE):
+            await self.log(f"остановка: вся страница {num_page} закрыла приём заявок до {self.SINCE}")
             return
 
         next_target = find_next_target(page, num_page)
