@@ -56,6 +56,10 @@ class Result:
     items: int = 0
     new: int = 0
     updated: int = 0
+    #: Лоты с ``validation.ok = false``: записаны, но сверки не сошлись.
+    invalid: int = 0
+    #: Лоты с подписями вне реестра: площадка добавила или переименовала поле.
+    unknown: int = 0
     requests: int = 0
     errors: int = 0
     reason: str = ""
@@ -126,6 +130,8 @@ async def crawl_one(
         async with MongoStore(platform.key, client=client, run_id=run_id) as store:
             async with open_crawler(platform.parser_cls, log=log) as crawler:
                 async for item in crawler.stream():
+                    result.invalid += not item["validation"]["ok"]
+                    result.unknown += bool(item["validation"]["unknown_labels"])
                     if await store.upsert(item):
                         result.new += 1
                     else:
@@ -173,7 +179,8 @@ async def run(platforms: list[Platform], quiet: bool) -> list[Result]:
             detail = (
                 result.failure[:60]
                 if result.failure
-                else f"лотов {result.items}, новых {result.new}, запросов {result.requests}"
+                else f"лотов {result.items}, новых {result.new}, невалидных {result.invalid}, "
+                f"с незнакомыми подписями {result.unknown}, запросов {result.requests}"
             )
             print(
                 f"[{time.monotonic() - clock:6.1f}с] {result.key:15} {mark} "
@@ -191,24 +198,26 @@ def report(results: list[Result]) -> int:
     width = max(len(r.key) for r in results)
 
     print(
-        f"\n{'площадка':{width}}  {'лотов':>6} {'новых':>6} {'обнов':>6} "
+        f"\n{'площадка':{width}}  {'лотов':>6} {'новых':>6} {'обнов':>6} {'невал':>6} {'незн':>5} "
         f"{'запр':>5} {'ош':>3}  {'время':>7}  причина"
     )
     for r in results:
         if r.failure:
             print(
-                f"{r.key:{width}}  {'—':>6} {'—':>6} {'—':>6} {'—':>5} {'—':>3}  "
+                f"{r.key:{width}}  {'—':>6} {'—':>6} {'—':>6} {'—':>6} {'—':>5} {'—':>5} {'—':>3}  "
                 f"{r.elapsed:6.1f}с  {r.failure[:44]}"
             )
         else:
             print(
-                f"{r.key:{width}}  {r.items:>6} {r.new:>6} {r.updated:>6} {r.requests:>5} "
-                f"{r.errors:>3}  {r.elapsed:6.1f}с  {r.reason}"
+                f"{r.key:{width}}  {r.items:>6} {r.new:>6} {r.updated:>6} {r.invalid:>6} {r.unknown:>5} "
+                f"{r.requests:>5} {r.errors:>3}  {r.elapsed:6.1f}с  {r.reason}"
             )
 
     failed = [r for r in results if r.failure]
     print(
         f"\nитого: лотов {sum(r.items for r in results)}, новых {sum(r.new for r in results)}, "
+        f"невалидных {sum(r.invalid for r in results)}, "
+        f"с незнакомыми подписями {sum(r.unknown for r in results)}, "
         f"запросов {sum(r.requests for r in results)}, "
         f"площадок {len(results) - len(failed)} из {len(results)}"
     )

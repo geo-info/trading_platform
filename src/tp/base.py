@@ -37,6 +37,7 @@ from typing import Any, ClassVar
 
 from collector import Parser, Response, Settings, open_crawler
 from parsel import Selector
+from pydantic import ValidationError
 
 from core.db import MongoStore
 from core.labels import canon_detail
@@ -386,11 +387,7 @@ class TenderFogsoft(Parser):
         )
 
     async def parse_lot(self, response: Response) -> Any:
-        """Страница лота: слить строку листинга с подробностями в один айтем.
-
-        Айтем собирается моделью ``core.lot.Lot``: она типизирует цену и сроки
-        листинга, а разделы страницы кладёт в ``extra`` как есть.
-        """
+        """Страница лота: слить строку листинга с подробностями в один айтем."""
         url = response.request.url
         match = re.search(r"/lots/view/(\d+)", url)
         if match is None:
@@ -398,14 +395,31 @@ class TenderFogsoft(Parser):
             await self.log(f"пропуск: в ссылке нет номера лота — {url}")
             return
 
-        row, page = response.metadata["row"], response.selector()
-        extra, refusals = canon_detail(raw_detail(page))
+        item = build_item(self.name, match.group(1), url, response.metadata["row"], response.selector())
+        if not item["validation"]["ok"] and "row" in item:
+            await self.log(f"лот {match.group(1)} не прошёл модель: {item['validation']['errors'][0][:120]}")
+        yield item
+
+
+def build_item(source: str, lot_id: str, url: str, row: dict[str, Any], page: Selector) -> dict[str, Any]:
+    """Айтем лота: строка листинга и страница лота через модель ``core.lot.Lot``.
+
+    Модель типизирует цену и сроки листинга, сводит разделы страницы в
+    ``extra`` и пишет итог сверок в ``validation``. Если модель лот всё же не
+    пропустила, он не теряется: без запасного документа исключение ушло бы в
+    collector, тот посчитал бы ошибку, и лот не попал бы в базу вовсе — из-за
+    одного поля. Запасной документ несёт ключ, сырую строку листинга и текст
+    ошибки в ``validation``, чтобы разбирать его было из чего.
+    """
+    fetched_at = datetime.now(UTC).isoformat()
+    extra, refusals = canon_detail(raw_detail(page))
+    try:
         lot = Lot.model_validate(
             {
-                "source": self.name,
-                "lot_id": match.group(1),
+                "source": source,
+                "lot_id": lot_id,
                 "url": url,
-                "fetched_at": datetime.now(UTC).isoformat(),
+                "fetched_at": fetched_at,
                 "trade_id": row["trade_id"],
                 "trade_number": row["trade_id"],
                 "lot_num": row["lot_num"],
@@ -428,7 +442,16 @@ class TenderFogsoft(Parser):
                 "price_schedule": parse_price_schedule(page),
             }
         )
-        yield lot.model_dump()
+    except ValidationError as exc:
+        return {
+            "source": source,
+            "lot_id": lot_id,
+            "url": url,
+            "fetched_at": fetched_at,
+            "row": row,
+            "validation": {"ok": False, "errors": [f"модель: {exc}"], "unknown_labels": []},
+        }
+    return lot.model_dump()
 
 
 def narrow(**overrides: Any) -> Settings:
