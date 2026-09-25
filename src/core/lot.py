@@ -53,6 +53,8 @@ class Lot(BaseModel):
 
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     price_schedule: list[dict[str, Any]] = Field(default_factory=list)
+    #: «Причина отказа победителя (ФИО)» со страницы лота: {role, party, reason}.
+    refusals: list[dict[str, Any]] = Field(default_factory=list)
     extra: dict[str, Any] = Field(default_factory=dict, alias="detail")
 
     @model_validator(mode="before")

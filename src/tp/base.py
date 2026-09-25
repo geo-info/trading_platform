@@ -39,6 +39,7 @@ from collector import Parser, Response, Settings, open_crawler
 from parsel import Selector
 
 from core.db import MongoStore
+from core.labels import canon_detail
 from core.lot import Lot
 from core.parsing import parse_datetime, parse_price
 from core.settings import settings as config
@@ -221,8 +222,8 @@ def value_of(node: Selector) -> Value:
     return cell(node)
 
 
-def parse_detail(page: Selector) -> dict[str, dict[str, Value]]:
-    """Разделы страницы лота: легенда -> пары «подпись: значение».
+def raw_detail(page: Selector) -> dict[str, dict[str, Value]]:
+    """Разделы страницы лота как на площадке: легенда -> пары «подпись: значение».
 
     Страница собрана из ``<fieldset><legend>…</legend>`` с таблицами внутри,
     где подписи лежат в ``td.tdTitle``, а значения — в следующих ``td.tdContent``.
@@ -250,7 +251,9 @@ def parse_detail(page: Selector) -> dict[str, dict[str, Value]]:
 
         pairs: dict[str, Value] = {}
         for title in fieldset.xpath(".//td[@class='tdTitle']"):
-            label = (cell(title) or "").rstrip(":")
+            # strip после rstrip: у части подписей перед двоеточием пробел
+            # («…публичного предложения :»), и без него ключ двоится.
+            label = (cell(title) or "").rstrip(":").strip()
             value = title.xpath("following-sibling::td[1][@class='tdContent']")
             if label and value:
                 pairs[label] = value_of(value[0])
@@ -259,6 +262,15 @@ def parse_detail(page: Selector) -> dict[str, dict[str, Value]]:
             sections[legend] = pairs
 
     return sections
+
+
+def parse_detail(page: Selector) -> dict[str, dict[str, Value]]:
+    """Разделы страницы лота, сведённые к одному написанию (см. ``core.labels``).
+
+    Отказы от договора здесь отброшены — их отдаёт ``canon_detail`` вторым
+    значением, и ``parse_lot`` берёт оба сразу.
+    """
+    return canon_detail(raw_detail(page))[0]
 
 
 def parse_attachments(page: Selector) -> list[dict[str, Any]]:
@@ -387,6 +399,7 @@ class TenderFogsoft(Parser):
             return
 
         row, page = response.metadata["row"], response.selector()
+        extra, refusals = canon_detail(raw_detail(page))
         lot = Lot.model_validate(
             {
                 "source": self.name,
@@ -409,7 +422,8 @@ class TenderFogsoft(Parser):
                 "status": row["status"],
                 "bidding_date": row["bids_end"],
                 "event_date": row["auction_date"],
-                "detail": parse_detail(page),
+                "detail": extra,
+                "refusals": refusals,
                 "attachments": parse_attachments(page),
                 "price_schedule": parse_price_schedule(page),
             }
