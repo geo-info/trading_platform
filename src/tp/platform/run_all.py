@@ -25,12 +25,12 @@ import logging
 import pkgutil
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from importlib import import_module
 from typing import Any
 
-from collector import Crawl, Outcome, crawl_many
+from collector import Crawl, Outcome, Stats, crawl_many
 from pymongo import AsyncMongoClient
 
 from core.db import MongoStore
@@ -55,31 +55,30 @@ class Platform:
 @dataclass(slots=True)
 class Result:
     key: str
-    items: int = 0
+    #: Что обход сделал — как его считает фреймворк: лоты, запросы, ошибки,
+    #: повторы (запросы, которые обход уже ставил в очередь) и причина конца.
+    #: Пустая причина — площадка упала, не начав обход.
+    stats: Stats = field(default_factory=lambda: Stats(reason=""))
+    #: Что с лотами стало здесь, в consume.
     new: int = 0
     updated: int = 0
     #: Лоты с ``validation.ok = false``: записаны, но сверки не сошлись.
     invalid: int = 0
     #: Лоты с подписями вне реестра: площадка добавила или переименовала поле.
     unknown: int = 0
-    requests: int = 0
-    errors: int = 0
-    #: Запросы, которые обход уже ставил в очередь, — не отправлены повторно.
-    duplicates: int = 0
-    reason: str = ""
     elapsed: float = 0.0
     failure: str = ""
 
     @property
     def ok(self) -> bool:
         """Площадка дошла до конца. Прерванная — не дошла, хоть и без ошибки."""
-        return not self.failure and self.reason != "cancelled"
+        return not self.failure and self.stats.reason != "cancelled"
 
     @property
     def mark(self) -> str:
         if self.failure:
             return "ОШИБКА"
-        return "ПРЕРВАНО" if self.reason == "cancelled" else "ГОТОВО"
+        return "ПРЕРВАНО" if self.stats.reason == "cancelled" else "ГОТОВО"
 
 
 def finish(result: Result, outcome: Outcome) -> Result:
@@ -89,9 +88,7 @@ def finish(result: Result, outcome: Outcome) -> Result:
     тысяч лотов, так и говорит об этом, а не показывает прочерки.
     """
     if outcome.crawl is not None:
-        stats = outcome.crawl.stats
-        result.items, result.requests, result.errors = stats.items, stats.requests, stats.errors
-        result.duplicates, result.reason = stats.duplicates, stats.reason
+        result.stats = outcome.crawl.stats
     if outcome.error is not None:
         result.failure = f"{type(outcome.error).__name__}: {outcome.error}"
     result.elapsed = outcome.elapsed
@@ -186,8 +183,8 @@ async def run(platforms: list[Platform], params: dict[str, Any], quiet: bool) ->
             result = finish(results[outcome.crawler_cls.name], outcome)
             finished += 1
             detail = (
-                f"лотов {result.items}, новых {result.new}, невалидных {result.invalid}, "
-                f"с незнакомыми подписями {result.unknown}, запросов {result.requests}"
+                f"лотов {result.stats.items}, новых {result.new}, невалидных {result.invalid}, "
+                f"с незнакомыми подписями {result.unknown}, запросов {result.stats.requests}"
             )
             if result.failure:
                 logger.warning("площадка %s упала: %s", result.key, result.failure)
@@ -204,7 +201,7 @@ async def run(platforms: list[Platform], params: dict[str, Any], quiet: bool) ->
 
 def report(results: list[Result]) -> int:
     """Итоговая таблица. Возвращает код выхода: не ноль, если кто-то не дошёл до конца."""
-    results.sort(key=lambda r: (not r.ok, -r.items))
+    results.sort(key=lambda r: (not r.ok, -r.stats.items))
     width = max(len(r.key) for r in results)
 
     print(
@@ -213,19 +210,20 @@ def report(results: list[Result]) -> int:
     )
     for r in results:
         # Статистика печатается и у упавшей площадки: сколько она успела.
-        why = f"{r.reason} — {r.failure[:44]}" if r.failure else r.reason
+        s = r.stats
+        why = f"{s.reason} — {r.failure[:44]}" if r.failure else s.reason
         print(
-            f"{r.key:{width}}  {r.items:>6} {r.new:>6} {r.updated:>6} {r.invalid:>6} {r.unknown:>5} "
-            f"{r.requests:>5} {r.duplicates:>5} {r.errors:>3}  {r.elapsed:6.1f}с  {why}"
+            f"{r.key:{width}}  {s.items:>6} {r.new:>6} {r.updated:>6} {r.invalid:>6} {r.unknown:>5} "
+            f"{s.requests:>5} {s.duplicates:>5} {s.errors:>3}  {r.elapsed:6.1f}с  {why}"
         )
 
     failed = [r for r in results if not r.ok]
     print(
-        f"\nитого: лотов {sum(r.items for r in results)}, новых {sum(r.new for r in results)}, "
+        f"\nитого: лотов {sum(r.stats.items for r in results)}, новых {sum(r.new for r in results)}, "
         f"невалидных {sum(r.invalid for r in results)}, "
         f"с незнакомыми подписями {sum(r.unknown for r in results)}, "
-        f"запросов {sum(r.requests for r in results)}, "
-        f"повторных не отправлено {sum(r.duplicates for r in results)}, "
+        f"запросов {sum(r.stats.requests for r in results)}, "
+        f"повторных не отправлено {sum(r.stats.duplicates for r in results)}, "
         f"площадок {len(results) - len(failed)} из {len(results)}"
     )
     print(f"хранилище: {config.mongo_uri}/{config.mongo_db}.{config.mongo_collection}")

@@ -94,7 +94,7 @@ def test_упавшая_площадка_сохраняет_статистику
     """Раньше статистика упавшей площадки терялась вместе с исключением."""
     stats = Stats(requests=120, items=100, errors=51, duplicates=3, reason="max_errors")
     result = finish(Result(key="bep"), outcome(stats, TimeoutError("read timeout")))
-    assert (result.items, result.requests, result.errors, result.duplicates) == (100, 120, 51, 3)
+    assert result.stats is stats  # статистика фреймворка, а не её копия
     assert result.failure == "TimeoutError: read timeout"
     assert (result.mark, result.ok) == ("ОШИБКА", False)
 
@@ -106,7 +106,7 @@ def test_прерванная_площадка_не_готова() -> None:
 
 def test_площадка_упавшая_до_обхода() -> None:
     result = finish(Result(key="bep"), outcome(None, OSError("no TLS")))
-    assert (result.items, result.failure, result.ok) == (0, "OSError: no TLS", False)
+    assert (result.stats.items, result.failure, result.ok) == (0, "OSError: no TLS", False)
 
 
 def test_дошедшая_до_конца_площадка_готова() -> None:
