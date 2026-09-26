@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import inspect
+from datetime import date
 
-from tp.base import TenderFogsoft, crawl
-from tp.platform.run_all import discover
+import pytest
+from collector.crawler.params import resolve_params
+
+from core.settings import settings as config
+from tp.base import FogsoftParams, TenderFogsoft, crawl
+from tp.platform.run_all import build_parser, discover, run_params
 
 EXPECTED = {
     "alfalot",
@@ -55,3 +60,28 @@ def test_площадка_переживает_отдельные_сбои_но_
     """max_errors фреймворка по умолчанию 0: одна битая страница лота роняла бы площадку."""
     for platform in discover():
         assert platform.parser_cls.settings.max_errors == 50, platform.key
+
+
+# ── параметры запуска ────────────────────────────────────────────────────────
+
+
+def test_параметры_площадки_объявлены_с_умолчаниями_из_настроек() -> None:
+    declared = TenderFogsoft.params
+    assert isinstance(declared, FogsoftParams)
+    assert (declared.max_pages, declared.since) == (config.max_pages, config.since)
+    # Предел и окно больше не атрибуты класса, которые run_all переписывал.
+    assert not hasattr(TenderFogsoft, "MAX_PAGES") and not hasattr(TenderFogsoft, "SINCE")
+
+
+def test_строки_запуска_приводятся_к_типам_параметров() -> None:
+    for platform in discover():
+        run = resolve_params(platform.parser_cls.params, {"max_pages": "2", "since": "2026-06-01"})
+        assert (run.max_pages, run.since) == (2, date(2026, 6, 1)), platform.key
+    with pytest.raises(ValueError, match="max_page"):
+        resolve_params(TenderFogsoft.params, {"max_page": "2"})
+
+
+def test_run_all_передаёт_только_заданные_параметры() -> None:
+    args = build_parser().parse_args(["--max-pages", "2", "--since", "2026-06-01", "--max-errors", "5"])
+    assert run_params(args) == {"max_pages": 2, "since": date(2026, 6, 1), "max_errors": 5}
+    assert run_params(build_parser().parse_args(["centerr"])) == {}

@@ -31,7 +31,7 @@ import asyncio
 import logging
 import re
 import sys
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from typing import Any, ClassVar
 
@@ -321,6 +321,25 @@ def parse_price_schedule(page: Selector) -> list[dict[str, str]]:
     return schedule
 
 
+@dataclass(frozen=True)
+class FogsoftParams:
+    """Что задаётся на один прогон: предел страниц и окно по дате.
+
+    Раньше это были атрибуты класса, и run_all переписывал их у класса на весь
+    процесс: два обхода в одном процессе видели значения друг друга. Теперь
+    фреймворк собирает свой экземпляр на каждый прогон, приводит строки из
+    командной строки к типам и отказывает в незнакомом ключе до первого
+    запроса — окно, молча не применённое из-за опечатки, обошло бы всё.
+
+    Умолчания — из ``core.settings``, то есть из окружения.
+    """
+
+    #: Предохранитель обхода. Без потолка ошибка в пагинации крутится вечно.
+    max_pages: int = config.max_pages
+    #: Окно по дате, см. ``Settings.since`` и ``page_is_older``.
+    since: date | None = config.since
+
+
 # ── парсер ───────────────────────────────────────────────────────────────────
 
 
@@ -329,12 +348,9 @@ class TenderFogsoft(Crawler):
 
     DOMAIN: ClassVar[str]
     LISTING_PATH: ClassVar[str] = "public/purchases-all/"
-    #: Предохранитель обхода. Без потолка ошибка в пагинации крутится вечно.
-    MAX_PAGES: ClassVar[int] = config.max_pages
-    #: Окно обхода по дате, см. ``Settings.since`` и ``page_is_older``.
-    SINCE: ClassVar[date | None] = config.since
 
     settings = BASE_SETTINGS
+    params = FogsoftParams()
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -369,12 +385,13 @@ class TenderFogsoft(Crawler):
             if row["lot_url"]:
                 yield response.follow(row["lot_url"], callback=self.parse_lot, metadata={"row": row})
 
-        if num_page >= self.MAX_PAGES:
-            await self.log(f"остановка: предел MAX_PAGES={self.MAX_PAGES}")
+        if num_page >= self.params.max_pages:
+            await self.log(f"остановка: предел max_pages={self.params.max_pages}")
             return
 
-        if self.SINCE is not None and page_is_older(rows, self.SINCE):
-            await self.log(f"остановка: вся страница {num_page} закрыла приём заявок до {self.SINCE}")
+        since = self.params.since
+        if since is not None and page_is_older(rows, since):
+            await self.log(f"остановка: вся страница {num_page} закрыла приём заявок до {since}")
             return
 
         next_target = find_next_target(page, num_page)

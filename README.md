@@ -45,6 +45,7 @@ uv run python -m tp.platform.run_all                   # все площадки
 uv run python -m tp.platform.run_all centerr etb       # только названные
 uv run python -m tp.platform.run_all --max-pages 2     # короткий прогон
 uv run python -m tp.platform.run_all --since 2026-06-01 # окно по дате
+uv run python -m tp.platform.run_all --max-errors 200  # терпимость к сбоям на прогон
 uv run python -m tp.platform.run_all --list            # что вообще есть
 uv run python -m tp.platform.bep                       # одна площадка отдельно
 ```

@@ -120,7 +120,12 @@ def make_log(key: str, clock: float, quiet: bool) -> Any:
 
 
 async def crawl_one(
-    platform: Platform, clock: float, quiet: bool, client: AsyncMongoClient, run_id: str
+    platform: Platform,
+    clock: float,
+    quiet: bool,
+    client: AsyncMongoClient,
+    run_id: str,
+    params: dict[str, Any],
 ) -> Result:
     """Обойти одну площадку, складывая лоты в общую коллекцию под её ``source``."""
     result = Result(key=platform.key)
@@ -128,7 +133,7 @@ async def crawl_one(
     log = make_log(platform.key, clock, quiet)
     try:
         async with MongoStore(platform.key, client=client, run_id=run_id) as store:
-            async with open_crawl(platform.parser_cls, log=log) as crawl:
+            async with open_crawl(platform.parser_cls, params=params, log=log) as crawl:
                 async for item in crawl.stream():
                     result.invalid += not item["validation"]["ok"]
                     result.unknown += bool(item["validation"]["unknown_labels"])
@@ -146,7 +151,7 @@ async def crawl_one(
     return result
 
 
-async def run(platforms: list[Platform], quiet: bool) -> list[Result]:
+async def run(platforms: list[Platform], params: dict[str, Any], quiet: bool) -> list[Result]:
     """Запустить площадки разом, печатая ход обхода по мере поступления.
 
     Клиент Mongo один на весь запуск: у него внутри свой пул соединений, и
@@ -160,7 +165,7 @@ async def run(platforms: list[Platform], quiet: bool) -> list[Result]:
 
     async def bound(platform: Platform) -> Result:
         async with gate:
-            return await crawl_one(platform, clock, quiet, client, run_id)
+            return await crawl_one(platform, clock, quiet, client, run_id, params)
 
     client: AsyncMongoClient = AsyncMongoClient(config.mongo_uri)
     try:
@@ -225,10 +230,7 @@ def report(results: list[Result]) -> int:
     return 1 if failed else 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Обход всех площадок разом.")
     ap.add_argument("keys", nargs="*", help="какие площадки обойти; по умолчанию все")
     ap.add_argument("--max-pages", type=int, metavar="N", help="предел страниц листинга на площадку")
@@ -238,10 +240,32 @@ def main(argv: list[str] | None = None) -> int:
         metavar="ГГГГ-ММ-ДД",
         help="листать, пока на странице есть лот с приёмом заявок не раньше этой даты",
     )
+    ap.add_argument(
+        "--max-errors",
+        type=int,
+        metavar="N",
+        help="сколько упавших запросов площадка переживает в этом прогоне",
+    )
     ap.add_argument("--list", action="store_true", help="показать список площадок и выйти")
     ap.add_argument("-v", "--verbose", action="store_true", help="добавить логи самого фреймворка")
     ap.add_argument("-q", "--quiet", action="store_true", help="только итоговая таблица")
-    args = ap.parse_args(argv)
+    return ap
+
+
+def run_params(args: argparse.Namespace) -> dict[str, Any]:
+    """Параметры прогона для фреймворка — только те, что заданы.
+
+    Незаданный ключ оставляет умолчание площадки: передать его как ``None``
+    значило бы «без окна» или «без предела» вместо «как настроено».
+    """
+    given = {"max_pages": args.max_pages, "since": args.since, "max_errors": args.max_errors}
+    return {name: value for name, value in given.items() if value is not None}
+
+
+def main(argv: list[str] | None = None) -> int:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    args = build_parser().parse_args(argv)
 
     # Строки парсеров идут через шов log= с меткой площадки. Логи фреймворка
     # (каждый запрос и ответ) метки не несут и при шестнадцати обходах сразу
@@ -262,16 +286,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         platforms = [p for p in platforms if p.key in set(args.keys)]
 
-    # MAX_PAGES и SINCE — атрибуты класса, и parse() читает их через self при
-    # каждом вызове: подмена здесь действует на весь запуск.
-    for p in platforms:
-        if args.max_pages is not None:
-            p.parser_cls.MAX_PAGES = args.max_pages
-        if args.since is not None:
-            p.parser_cls.SINCE = args.since
-
     started = time.monotonic()
-    results = asyncio.run(run(platforms, quiet=args.quiet))
+    results = asyncio.run(run(platforms, run_params(args), quiet=args.quiet))
     code = report(results)
     print(f"всего заняло {time.monotonic() - started:.1f}с")
     return code
