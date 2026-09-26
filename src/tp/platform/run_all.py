@@ -28,7 +28,7 @@ from datetime import date
 from importlib import import_module
 from typing import Any
 
-from collector import open_crawler
+from collector import open_crawl
 from pymongo import AsyncMongoClient
 
 from core.db import MongoStore
@@ -128,15 +128,15 @@ async def crawl_one(
     log = make_log(platform.key, clock, quiet)
     try:
         async with MongoStore(platform.key, client=client, run_id=run_id) as store:
-            async with open_crawler(platform.parser_cls, log=log) as crawler:
-                async for item in crawler.stream():
+            async with open_crawl(platform.parser_cls, log=log) as crawl:
+                async for item in crawl.stream():
                     result.invalid += not item["validation"]["ok"]
                     result.unknown += bool(item["validation"]["unknown_labels"])
                     if await store.upsert(item):
                         result.new += 1
                     else:
                         result.updated += 1
-        stats = crawler.stats
+        stats = crawl.stats
         result.items, result.requests = stats.items, stats.requests
         result.errors, result.reason = stats.errors, stats.reason
     except Exception as exc:  # noqa: BLE001 — падение площадки не должно ронять остальные

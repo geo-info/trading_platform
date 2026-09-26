@@ -121,7 +121,7 @@ wheels = [
 [[package]]
 name = "collector-framework"
 version = "0.0.1"
-source = { git = "https://github.com/barabacker/collector-framework?branch=main#d659ee6f4fd32c0c906421e0801979b6b5be4e76" }
+source = { git = "https://github.com/barabacker/collector-framework?branch=main#f6482ddac5f3cc08e9162baef67e2108b64cc50a" }
 dependencies = [
     { name = "certifi" },
     { name = "curl-cffi" },

@@ -35,7 +35,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from typing import Any, ClassVar
 
-from collector import Parser, Response, Settings, open_crawler
+from collector import Crawler, Response, Settings, open_crawl
 from parsel import Selector
 from pydantic import ValidationError
 
@@ -315,7 +315,7 @@ def parse_price_schedule(page: Selector) -> list[dict[str, str]]:
 # ── парсер ───────────────────────────────────────────────────────────────────
 
 
-class TenderFogsoft(Parser):
+class TenderFogsoft(Crawler):
     """Наследнику достаточно задать ``name`` и ``DOMAIN``."""
 
     DOMAIN: ClassVar[str]
@@ -474,13 +474,13 @@ async def crawl(parser_cls: type[TenderFogsoft]) -> tuple[Any, int, int, int, st
     """
     new = updated = 0
     async with MongoStore(parser_cls.name) as store:
-        async with open_crawler(parser_cls) as crawler:
-            async for item in crawler.stream():
+        async with open_crawl(parser_cls) as crawl:
+            async for item in crawl.stream():
                 if await store.upsert(item):
                     new += 1
                 else:
                     updated += 1
-        return crawler.stats, new, updated, await store.count(), store.target
+        return crawl.stats, new, updated, await store.count(), store.target
 
 
 def main(parser_cls: type[TenderFogsoft]) -> None:
