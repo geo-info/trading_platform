@@ -49,3 +49,9 @@ def test_площадки_наследуют_базовый_класс() -> None
         assert issubclass(cls, TenderFogsoft) and cls is not TenderFogsoft, platform.key
         # start_urls выводится из DOMAIN в __init_subclass__, а не пишется руками.
         assert cls.start_urls == [f"{cls.DOMAIN.rstrip('/')}/{cls.LISTING_PATH}"], platform.key
+
+
+def test_площадка_переживает_отдельные_сбои_но_не_сломанную_вёрстку() -> None:
+    """max_errors фреймворка по умолчанию 0: одна битая страница лота роняла бы площадку."""
+    for platform in discover():
+        assert platform.parser_cls.settings.max_errors == 50, platform.key
