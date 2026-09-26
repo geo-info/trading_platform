@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 from datetime import date
 from types import SimpleNamespace
 
@@ -11,7 +10,7 @@ from collector import Outcome, Stats
 from collector.crawler.params import resolve_params
 
 from core.settings import settings as config
-from tp.base import FogsoftParams, TenderFogsoft, crawl
+from tp.base import FogsoftParams, TenderFogsoft
 from tp.platform.run_all import Result, build_parser, discover, finish, report, run_params
 
 EXPECTED = {
@@ -42,12 +41,6 @@ def test_у_каждой_площадки_свой_класс_и_стартов�
     platforms = discover()
     assert len({p.parser_cls for p in platforms}) == len(platforms)
     assert len({p.parser_cls.start_urls[0] for p in platforms}) == len(platforms)
-
-
-def test_обход_асинхронный_и_общий_на_все_площадки() -> None:
-    """crawl() переехал в базу и принимает класс площадки, а не живёт в каждом модуле."""
-    assert inspect.iscoroutinefunction(crawl)
-    assert list(inspect.signature(crawl).parameters) == ["parser_cls"]
 
 
 def test_площадки_наследуют_базовый_класс() -> None:

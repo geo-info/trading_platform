@@ -28,19 +28,15 @@
 
 from __future__ import annotations
 
-import asyncio
-import logging
 import re
-import sys
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from typing import Any, ClassVar
 
-from collector import Crawler, Response, Settings, open_crawl
+from collector import Crawler, Response, Settings
 from parsel import Selector
 from pydantic import ValidationError
 
-from core.db import MongoStore
 from core.labels import canon_detail
 from core.lot import Lot
 from core.parsing import parse_datetime, parse_price
@@ -452,39 +448,3 @@ def narrow(**overrides: Any) -> Settings:
     не теряла общие ``delay`` и ``timeout``, когда те поменяются.
     """
     return replace(BASE_SETTINGS, **overrides)
-
-
-# ── запуск одной площадки ────────────────────────────────────────────────────
-
-
-async def crawl(parser_cls: type[TenderFogsoft]) -> tuple[Any, int, int, int, str]:
-    """Обойти площадку, складывая лоты в хранилище по мере поступления.
-
-    Поток, а не ``collect()``: айтемы пишутся сразу, и обход, прерванный на
-    середине, оставляет после себя всё, что успел собрать.
-    """
-    new = updated = 0
-    async with MongoStore(parser_cls.name) as store:
-        async with open_crawl(parser_cls) as crawl:
-            async for item in crawl.stream():
-                if await store.upsert(item):
-                    new += 1
-                else:
-                    updated += 1
-        return crawl.stats, new, updated, await store.count(), store.target
-
-
-def main(parser_cls: type[TenderFogsoft]) -> None:
-    """Точка входа модуля площадки: ``python -m tp.centerr``."""
-    # Логи парсера и фреймворка идут через stdlib logging уровнем INFO, а у root
-    # по умолчанию нет обработчиков и порог WARNING — без basicConfig всё INFO
-    # молча отбрасывается. Консоль Windows вдобавок не UTF-8, а в логах кириллица.
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-
-    stats, new, updated, total, target = asyncio.run(crawl(parser_cls))
-
-    print(f"лотов получено {stats.items}: новых {new}, обновлено {updated}")
-    print(f"запросов {stats.requests}, ошибок {stats.errors}, причина остановки {stats.reason}")
-    print(f"в хранилище {total} документов -> {target}")

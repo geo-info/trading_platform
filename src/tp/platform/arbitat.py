@@ -1,17 +1,13 @@
 """Арбитат — банкротные торги, движок iTender.
 
-uv run python -m tp.platform.arbitat
+uv run python -m tp.platform.run_all arbitat
 """
 
 from __future__ import annotations
 
-from tp.base import TenderFogsoft, main
+from tp.base import TenderFogsoft
 
 
 class Arbitat(TenderFogsoft):
     name = "arbitat"
     DOMAIN = "http://arbitat.ru"
-
-
-if __name__ == "__main__":
-    main(Arbitat)

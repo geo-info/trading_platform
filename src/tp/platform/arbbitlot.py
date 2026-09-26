@@ -4,19 +4,15 @@
 поэтому проверка TLS отключена. Это снимает и защиту от подмены трафика —
 цена за доступ к сайту, который иначе не открыть вовсе.
 
-uv run python -m tp.platform.arbbitlot
+uv run python -m tp.platform.run_all arbbitlot
 """
 
 from __future__ import annotations
 
-from tp.base import TenderFogsoft, main, narrow
+from tp.base import TenderFogsoft, narrow
 
 
 class Arbbitlot(TenderFogsoft):
     name = "arbbitlot"
     DOMAIN = "https://torgi.arbbitlot.ru"
     settings = narrow(skip_tls_verify=True)
-
-
-if __name__ == "__main__":
-    main(Arbbitlot)

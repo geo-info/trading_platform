@@ -1,17 +1,13 @@
 """ТЕНДЕР ГАРАНТ — банкротные торги, движок iTender.
 
-uv run python -m tp.platform.tendergarant
+uv run python -m tp.platform.run_all tendergarant
 """
 
 from __future__ import annotations
 
-from tp.base import TenderFogsoft, main
+from tp.base import TenderFogsoft
 
 
 class Tendergarant(TenderFogsoft):
     name = "tendergarant"
     DOMAIN = "https://tendergarant.com"
-
-
-if __name__ == "__main__":
-    main(Tendergarant)
