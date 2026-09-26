@@ -12,7 +12,9 @@
 сайта, поэтому ``concurrency`` у парсеров остаётся единицей.
 
 Падение одной площадки не трогает остальные: исключение попадает в её строку
-итоговой таблицы, а соседи досчитываются до конца.
+итоговой таблицы вместе с тем, что она успела, а соседи досчитываются до
+конца. Разводит площадки ``crawl_many`` фреймворка; здесь — куда идут лоты и
+что видит человек.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ from datetime import date
 from importlib import import_module
 from typing import Any
 
-from collector import open_crawl
+from collector import Crawl, Outcome, crawl_many
 from pymongo import AsyncMongoClient
 
 from core.db import MongoStore
@@ -62,9 +64,38 @@ class Result:
     unknown: int = 0
     requests: int = 0
     errors: int = 0
+    #: Запросы, которые обход уже ставил в очередь, — не отправлены повторно.
+    duplicates: int = 0
     reason: str = ""
     elapsed: float = 0.0
     failure: str = ""
+
+    @property
+    def ok(self) -> bool:
+        """Площадка дошла до конца. Прерванная — не дошла, хоть и без ошибки."""
+        return not self.failure and self.reason != "cancelled"
+
+    @property
+    def mark(self) -> str:
+        if self.failure:
+            return "ОШИБКА"
+        return "ПРЕРВАНО" if self.reason == "cancelled" else "ГОТОВО"
+
+
+def finish(result: Result, outcome: Outcome) -> Result:
+    """Дописать в итог площадки то, чем закончился её обход.
+
+    Статистика берётся и у упавшей площадки: площадка, упавшая после двух
+    тысяч лотов, так и говорит об этом, а не показывает прочерки.
+    """
+    if outcome.crawl is not None:
+        stats = outcome.crawl.stats
+        result.items, result.requests, result.errors = stats.items, stats.requests, stats.errors
+        result.duplicates, result.reason = stats.duplicates, stats.reason
+    if outcome.error is not None:
+        result.failure = f"{type(outcome.error).__name__}: {outcome.error}"
+    result.elapsed = outcome.elapsed
+    return result
 
 
 def discover() -> list[Platform]:
@@ -104,126 +135,98 @@ def discover() -> list[Platform]:
     return found
 
 
-def make_log(key: str, clock: float, quiet: bool) -> Any:
-    """Шов ``log=`` для одного краула: помечает строку площадкой и временем.
-
-    Метка обязательна: шестнадцать обходов пишут в один поток вперемешку, и
-    без неё строки нечитаемы. Секунды от общего старта заодно показывают, что
-    площадки идут разом, а не по очереди, — иначе это видно только по итогу.
-    """
-
-    async def log(message: str) -> None:
-        if not quiet:
-            print(f"[{time.monotonic() - clock:6.1f}с] {key:15} {message}", flush=True)
-
-    return log
-
-
-async def crawl_one(
-    platform: Platform,
-    clock: float,
-    quiet: bool,
-    client: AsyncMongoClient,
-    run_id: str,
-    params: dict[str, Any],
-) -> Result:
-    """Обойти одну площадку, складывая лоты в общую коллекцию под её ``source``."""
-    result = Result(key=platform.key)
-    started = time.monotonic()
-    log = make_log(platform.key, clock, quiet)
-    try:
-        async with MongoStore(platform.key, client=client, run_id=run_id) as store:
-            async with open_crawl(platform.parser_cls, params=params, log=log) as crawl:
-                async for item in crawl.stream():
-                    result.invalid += not item["validation"]["ok"]
-                    result.unknown += bool(item["validation"]["unknown_labels"])
-                    if await store.upsert(item):
-                        result.new += 1
-                    else:
-                        result.updated += 1
-        stats = crawl.stats
-        result.items, result.requests = stats.items, stats.requests
-        result.errors, result.reason = stats.errors, stats.reason
-    except Exception as exc:  # noqa: BLE001 — падение площадки не должно ронять остальные
-        result.failure = f"{type(exc).__name__}: {exc}"
-        logger.warning("площадка %s упала: %s", platform.key, result.failure)
-    result.elapsed = time.monotonic() - started
-    return result
-
-
 async def run(platforms: list[Platform], params: dict[str, Any], quiet: bool) -> list[Result]:
-    """Запустить площадки разом, печатая ход обхода по мере поступления.
+    """Запустить площадки разом через ``crawl_many``, печатая ход по мере поступления.
+
+    Сколько площадок идёт разом, чья строка лога и падение одной без остальных —
+    это делает фреймворк. Здесь — что делать с лотами (``consume``: в Mongo, с
+    подсчётом новых и обновлённых) и что показать человеку.
 
     Клиент Mongo один на весь запуск: у него внутри свой пул соединений, и
     шестнадцать отдельных клиентов — это шестнадцать пулов и шестнадцать
     наборов фоновых задач мониторинга там, где хватает одного набора.
     """
     clock = time.monotonic()
-    gate = asyncio.Semaphore(config.platform_concurrency)
     # Одна метка на весь запуск: «что видел последний обход» — один запрос.
     run_id = new_run_id()
+    results = {p.key: Result(key=p.key) for p in platforms}
 
-    async def bound(platform: Platform) -> Result:
-        async with gate:
-            return await crawl_one(platform, clock, quiet, client, run_id, params)
+    async def consume(crawl: Crawl) -> None:
+        result = results[crawl.crawler.name]
+        async with MongoStore(result.key, client=client, run_id=run_id) as store:
+            async for item in crawl.stream():
+                result.invalid += not item["validation"]["ok"]
+                result.unknown += bool(item["validation"]["unknown_labels"])
+                if await store.upsert(item):
+                    result.new += 1
+                else:
+                    result.updated += 1
+
+    async def log(name: str, message: str) -> None:
+        # Метка обязательна: шестнадцать обходов пишут в один поток вперемешку.
+        # Секунды от общего старта заодно показывают, что площадки идут разом.
+        if not quiet:
+            print(f"[{time.monotonic() - clock:6.1f}с] {name:15} {message}", flush=True)
 
     client: AsyncMongoClient = AsyncMongoClient(config.mongo_uri)
     try:
-        tasks = [asyncio.create_task(bound(p), name=p.key) for p in platforms]
         print(
-            f"запущено площадок: {len(tasks)}, одновременно до {config.platform_concurrency}, "
+            f"запущено площадок: {len(platforms)}, одновременно до {config.platform_concurrency}, "
             f"run_id {run_id}\n",
             flush=True,
         )
-
-        results: list[Result] = []
-        for finished in asyncio.as_completed(tasks):
-            result = await finished
-            results.append(result)
-            mark = "ОШИБКА" if result.failure else "ГОТОВО"
+        done: list[Result] = []
+        async for outcome in crawl_many(
+            [p.parser_cls for p in platforms],
+            concurrency=config.platform_concurrency,
+            params=params,
+            consume=consume,
+            log=log,
+        ):
+            result = finish(results[outcome.crawler_cls.name], outcome)
+            done.append(result)
+            if result.failure:
+                logger.warning("площадка %s упала: %s", result.key, result.failure)
             detail = (
-                result.failure[:60]
-                if result.failure
-                else f"лотов {result.items}, новых {result.new}, невалидных {result.invalid}, "
+                f"лотов {result.items}, новых {result.new}, невалидных {result.invalid}, "
                 f"с незнакомыми подписями {result.unknown}, запросов {result.requests}"
             )
+            if result.failure:
+                detail += f" — {result.failure[:60]}"
             print(
-                f"[{time.monotonic() - clock:6.1f}с] {result.key:15} {mark} "
-                f"({len(results)}/{len(tasks)}) за {result.elapsed:.1f}с  {detail}",
+                f"[{time.monotonic() - clock:6.1f}с] {result.key:15} {result.mark} "
+                f"({len(done)}/{len(platforms)}) за {result.elapsed:.1f}с  {detail}",
                 flush=True,
             )
-        return results
+        return done
     finally:
         await client.close()
 
 
 def report(results: list[Result]) -> int:
-    """Итоговая таблица. Возвращает код выхода: не ноль, если кто-то упал."""
-    results.sort(key=lambda r: (bool(r.failure), -r.items))
+    """Итоговая таблица. Возвращает код выхода: не ноль, если кто-то не дошёл до конца."""
+    results.sort(key=lambda r: (not r.ok, -r.items))
     width = max(len(r.key) for r in results)
 
     print(
         f"\n{'площадка':{width}}  {'лотов':>6} {'новых':>6} {'обнов':>6} {'невал':>6} {'незн':>5} "
-        f"{'запр':>5} {'ош':>3}  {'время':>7}  причина"
+        f"{'запр':>5} {'повт':>5} {'ош':>3}  {'время':>7}  причина"
     )
     for r in results:
-        if r.failure:
-            print(
-                f"{r.key:{width}}  {'—':>6} {'—':>6} {'—':>6} {'—':>6} {'—':>5} {'—':>5} {'—':>3}  "
-                f"{r.elapsed:6.1f}с  {r.failure[:44]}"
-            )
-        else:
-            print(
-                f"{r.key:{width}}  {r.items:>6} {r.new:>6} {r.updated:>6} {r.invalid:>6} {r.unknown:>5} "
-                f"{r.requests:>5} {r.errors:>3}  {r.elapsed:6.1f}с  {r.reason}"
-            )
+        # Статистика печатается и у упавшей площадки: сколько она успела.
+        why = f"{r.reason} — {r.failure[:44]}" if r.failure else r.reason
+        print(
+            f"{r.key:{width}}  {r.items:>6} {r.new:>6} {r.updated:>6} {r.invalid:>6} {r.unknown:>5} "
+            f"{r.requests:>5} {r.duplicates:>5} {r.errors:>3}  {r.elapsed:6.1f}с  {why}"
+        )
 
-    failed = [r for r in results if r.failure]
+    failed = [r for r in results if not r.ok]
     print(
         f"\nитого: лотов {sum(r.items for r in results)}, новых {sum(r.new for r in results)}, "
         f"невалидных {sum(r.invalid for r in results)}, "
         f"с незнакомыми подписями {sum(r.unknown for r in results)}, "
         f"запросов {sum(r.requests for r in results)}, "
+        f"повторных не отправлено {sum(r.duplicates for r in results)}, "
         f"площадок {len(results) - len(failed)} из {len(results)}"
     )
     print(f"хранилище: {config.mongo_uri}/{config.mongo_db}.{config.mongo_collection}")

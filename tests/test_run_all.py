@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import inspect
 from datetime import date
+from types import SimpleNamespace
 
 import pytest
+from collector import Outcome, Stats
 from collector.crawler.params import resolve_params
 
 from core.settings import settings as config
 from tp.base import FogsoftParams, TenderFogsoft, crawl
-from tp.platform.run_all import build_parser, discover, run_params
+from tp.platform.run_all import Result, build_parser, discover, finish, report, run_params
 
 EXPECTED = {
     "alfalot",
@@ -85,3 +87,37 @@ def test_run_all_передаёт_только_заданные_параметр
     args = build_parser().parse_args(["--max-pages", "2", "--since", "2026-06-01", "--max-errors", "5"])
     assert run_params(args) == {"max_pages": 2, "since": date(2026, 6, 1), "max_errors": 5}
     assert run_params(build_parser().parse_args(["centerr"])) == {}
+
+
+# ── исход площадки ───────────────────────────────────────────────────────────
+
+
+def outcome(stats: Stats | None, error: Exception | None = None) -> Outcome:
+    crawl = None if stats is None else SimpleNamespace(stats=stats)
+    return Outcome(crawler_cls=TenderFogsoft, crawl=crawl, error=error, elapsed=12.5)
+
+
+def test_упавшая_площадка_сохраняет_статистику() -> None:
+    """Раньше статистика упавшей площадки терялась вместе с исключением."""
+    stats = Stats(requests=120, items=100, errors=51, duplicates=3, reason="max_errors")
+    result = finish(Result(key="bep"), outcome(stats, TimeoutError("read timeout")))
+    assert (result.items, result.requests, result.errors, result.duplicates) == (100, 120, 51, 3)
+    assert result.failure == "TimeoutError: read timeout"
+    assert (result.mark, result.ok) == ("ОШИБКА", False)
+
+
+def test_прерванная_площадка_не_готова() -> None:
+    result = finish(Result(key="bep"), outcome(Stats(items=5, reason="cancelled")))
+    assert (result.mark, result.ok) == ("ПРЕРВАНО", False)
+
+
+def test_площадка_упавшая_до_обхода() -> None:
+    result = finish(Result(key="bep"), outcome(None, OSError("no TLS")))
+    assert (result.items, result.failure, result.ok) == (0, "OSError: no TLS", False)
+
+
+def test_дошедшая_до_конца_площадка_готова() -> None:
+    result = finish(Result(key="bep"), outcome(Stats(items=40, requests=42, reason="done")))
+    assert (result.mark, result.ok, result.elapsed) == ("ГОТОВО", True, 12.5)
+    assert report([result]) == 0
+    assert report([result, finish(Result(key="etb"), outcome(Stats(reason="cancelled")))]) == 1
