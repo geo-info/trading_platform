@@ -14,9 +14,10 @@
 
 Ходим **обычными postback-ами**, без заголовка ``X-MicrosoftAjax``. Тогда
 сервер отвечает целой HTML-страницей, а не дельтой UpdatePanel (``text/plain``
-с записями ``длина|тип|имя|значение|``), и скрытые поля на каждом шаге лежат
-там же, где на первом, — в тегах ``input``. Одна форма ответа на весь обход,
-одна функция для токенов, никаких развилок по номеру страницы.
+с записями ``длина|тип|имя|значение|``), и форма на каждом шаге та же, что на
+первом. Тело POST собирает ``Response.form_request()`` фреймворка — все поля
+формы, как отправил бы браузер, с токенами ``__CVIEWSTATE`` и
+``__EVENTVALIDATION`` в их числе; парсер называет только то, что меняет.
 
 Новая площадка::
 
@@ -83,14 +84,6 @@ def cell(node: Selector) -> str | None:
     return clean(" ".join(node.xpath(".//text()[not(ancestor::a)]").getall()))
 
 
-def extract_initial_tokens(page: Selector) -> tuple[str | None, str | None]:
-    """``(__CVIEWSTATE, __EVENTVALIDATION)`` из скрытых полей формы."""
-    return (
-        page.xpath('//input[@id="__CVIEWSTATE"]/@value').get(),
-        page.xpath('//input[@id="__EVENTVALIDATION"]/@value').get(),
-    )
-
-
 def find_next_target(page: Selector, num_page: int) -> str | None:
     """EVENTTARGET следующей страницы; ``None`` — текущая последняя.
 
@@ -105,66 +98,36 @@ def find_next_target(page: Selector, num_page: int) -> str | None:
     return match.group(1) if match else None
 
 
-def build_payload(target: str, cviewstate: str, eventvalidation: str) -> dict[str, str]:
-    """Тело POST, повторяющее клик по ссылке пейджера."""
-    return {
-        "__EVENTTARGET": target,
-        "__EVENTARGUMENT": "",
-        "__CVIEWSTATE": cviewstate,
-        "__EVENTVALIDATION": eventvalidation,
-    }
-
-
 #: Поля формы поиска над листингом: у всех площадок движка они внутри
 #: раскрывающейся панели, и её id входит в имя каждого поля.
 SEARCH_PANEL = "phExpandCollapse"
 
 
-def filter_reset_payload(page: Selector) -> dict[str, str] | None:
-    """Тело POST формы поиска со сброшенными фильтрами; ``None`` — сбрасывать нечего.
+def filter_resets(page: Selector) -> dict[str, str]:
+    """Выпадающие списки формы поиска, где выбрано не «Все», -> значение «Все».
 
     Площадка может открывать листинг с фильтром по умолчанию: centerr
     показывает только «Прием заявок», и без сброса в базу не попадает ни один
-    завершённый лот. Сбрасываем не только статус, а любой выпадающий список,
-    где выбрано не «Все», — какой фильтр выставит следующая площадка, заранее
-    не знать.
+    завершённый лот. Сбрасываем не только статус, а любой список с вариантом
+    «Все», — какой фильтр выставит следующая площадка, заранее не знать.
+    Список без «Все» — не фильтр, его не трогаем. Пустой словарь — сбрасывать
+    нечего.
     """
-    selects = page.xpath(f"//select[contains(@name, '{SEARCH_PANEL}')]")
-    fields: dict[str, str] = {}
-    filtered = False
-    for select in selects:
+    resets: dict[str, str] = {}
+    for select in page.xpath(f"//select[contains(@name, '{SEARCH_PANEL}')]"):
         first = select.xpath("./option[1]")
         if clean(first.xpath("string(.)").get()) != "Все":
-            # Список без варианта «Все» — не фильтр, его не трогаем.
-            fields[select.attrib["name"]] = select.xpath("./option[@selected]/@value").get() or ""
             continue
         everything = first.attrib.get("value", "")
         chosen = select.xpath("./option[@selected]/@value").get()
-        filtered |= chosen is not None and chosen != everything
-        fields[select.attrib["name"]] = everything
-    if not filtered:
-        return None
+        if chosen is not None and chosen != everything:
+            resets[select.attrib["name"]] = everything
+    return resets
 
-    # Кнопка поиска стоит в панели первой, перед «Очистить».
-    button = page.xpath(f"//input[@type='submit'][contains(@name, '{SEARCH_PANEL}')][1]")
-    if not button:
-        return None
-    hidden = {
-        node.attrib["name"]: node.attrib.get("value", "")
-        for node in page.xpath("//input[@type='hidden'][@name]")
-    }
-    text = {
-        node.attrib["name"]: node.attrib.get("value", "")
-        for node in page.xpath(f"//input[not(@type) or @type='text'][contains(@name, '{SEARCH_PANEL}')]")
-    }
-    return {
-        **hidden,
-        **text,
-        **fields,
-        "__EVENTTARGET": "",
-        "__EVENTARGUMENT": "",
-        button[0].attrib["name"]: button[0].attrib.get("value", ""),
-    }
+
+def search_button(page: Selector) -> str | None:
+    """Имя кнопки поиска. Она стоит в панели первой, перед «Очистить»."""
+    return page.xpath(f"//input[@type='submit'][contains(@name, '{SEARCH_PANEL}')][1]/@name").get()
 
 
 def page_is_older(rows: list[dict[str, Any]], since: date) -> bool:
@@ -365,18 +328,19 @@ class TenderFogsoft(Crawler):
         num_page = response.metadata.get("page", 1)
 
         if num_page == 1 and not response.metadata.get("filters_reset"):
-            payload = filter_reset_payload(page)
-            if payload is not None:
+            resets, button = filter_resets(page), search_button(page)
+            if resets and button:
                 # Строки этой страницы отфильтрованы — их не берём: та же первая
-                # страница придёт заново уже без фильтра.
+                # страница придёт заново уже без фильтра. Кнопка называется
+                # явно: в форме WebForms вся страница, и первая кнопка в ней —
+                # «Войти», а не «Искать».
                 await self.log("листинг открылся с фильтром — сбрасываю")
-                yield self.request(
-                    response.request.url,
-                    method="POST",
-                    data=payload,
-                    metadata={"page": 1, "filters_reset": True},
+                yield response.form_request(
+                    formdata=resets, click=button, metadata={"page": 1, "filters_reset": True}
                 )
                 return
+            if resets:
+                await self.log("листинг открылся с фильтром, а кнопки поиска нет — иду как есть")
 
         rows = parse_rows(page)
         await self.log(f"{response.status} | страница {num_page} | лотов {len(rows)}")
@@ -399,16 +363,16 @@ class TenderFogsoft(Crawler):
             await self.log(f"страница {num_page} последняя")
             return
 
-        cviewstate, eventvalidation = extract_initial_tokens(page)
-        if not cviewstate or not eventvalidation:
-            # Молча выйти здесь — значит выдать обрыв цепочки за её конец.
+        if not page.xpath("//input[@name='__CVIEWSTATE']/@value").get():
+            # Пост без токенов сервер ответит первой страницей, и обход пошёл бы
+            # по кругу. Молча выйти здесь — выдать обрыв цепочки за её конец.
             await self.log(f"страница {num_page}: токенов нет, дальше идти нечем")
             return
 
-        yield self.request(
-            response.request.url,
-            method="POST",
-            data=build_payload(next_target, cviewstate, eventvalidation),
+        # Клик по ссылке пейджера: __doPostBack кладёт её цель в __EVENTTARGET,
+        # остальное — поля формы как есть.
+        yield response.form_request(
+            formdata={"__EVENTTARGET": next_target, "__EVENTARGUMENT": ""},
             metadata={"page": num_page + 1},
         )
 
