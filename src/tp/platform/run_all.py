@@ -175,7 +175,7 @@ async def run(platforms: list[Platform], params: dict[str, Any], quiet: bool) ->
             f"run_id {run_id}\n",
             flush=True,
         )
-        done: list[Result] = []
+        finished = 0
         async for outcome in crawl_many(
             [p.parser_cls for p in platforms],
             concurrency=config.platform_concurrency,
@@ -184,21 +184,20 @@ async def run(platforms: list[Platform], params: dict[str, Any], quiet: bool) ->
             log=log,
         ):
             result = finish(results[outcome.crawler_cls.name], outcome)
-            done.append(result)
-            if result.failure:
-                logger.warning("площадка %s упала: %s", result.key, result.failure)
+            finished += 1
             detail = (
                 f"лотов {result.items}, новых {result.new}, невалидных {result.invalid}, "
                 f"с незнакомыми подписями {result.unknown}, запросов {result.requests}"
             )
             if result.failure:
+                logger.warning("площадка %s упала: %s", result.key, result.failure)
                 detail += f" — {result.failure[:60]}"
             print(
                 f"[{time.monotonic() - clock:6.1f}с] {result.key:15} {result.mark} "
-                f"({len(done)}/{len(platforms)}) за {result.elapsed:.1f}с  {detail}",
+                f"({finished}/{len(platforms)}) за {result.elapsed:.1f}с  {detail}",
                 flush=True,
             )
-        return done
+        return list(results.values())
     finally:
         await client.close()
 

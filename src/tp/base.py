@@ -328,19 +328,20 @@ class TenderFogsoft(Crawler):
         num_page = response.metadata.get("page", 1)
 
         if num_page == 1 and not response.metadata.get("filters_reset"):
-            resets, button = filter_resets(page), search_button(page)
-            if resets and button:
-                # Строки этой страницы отфильтрованы — их не берём: та же первая
-                # страница придёт заново уже без фильтра. Кнопка называется
-                # явно: в форме WebForms вся страница, и первая кнопка в ней —
-                # «Войти», а не «Искать».
-                await self.log("листинг открылся с фильтром — сбрасываю")
-                yield response.form_request(
-                    formdata=resets, click=button, metadata={"page": 1, "filters_reset": True}
-                )
-                return
-            if resets:
-                await self.log("листинг открылся с фильтром, а кнопки поиска нет — иду как есть")
+            if resets := filter_resets(page):
+                button = search_button(page)
+                if button is None:
+                    await self.log("листинг открылся с фильтром, а кнопки поиска нет — иду как есть")
+                else:
+                    # Строки этой страницы отфильтрованы — их не берём: та же
+                    # первая страница придёт заново уже без фильтра. Кнопка
+                    # называется явно: в форме WebForms вся страница, и первая
+                    # кнопка в ней — «Войти», а не «Искать».
+                    await self.log("листинг открылся с фильтром — сбрасываю")
+                    yield response.form_request(
+                        formdata=resets, click=button, metadata={"page": 1, "filters_reset": True}
+                    )
+                    return
 
         rows = parse_rows(page)
         await self.log(f"{response.status} | страница {num_page} | лотов {len(rows)}")
