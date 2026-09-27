@@ -14,9 +14,9 @@ from tp.platforms.ruson.nistp import Nistp
 from tp.platforms.ruson.sistematorg import Sistematorg
 
 FIXTURES = Path(__file__).parent / "fixtures"
-NISTP = (FIXTURES / "ruson_listing_nistp.html").read_text(encoding="utf-8")
-RUS_ON = (FIXTURES / "ruson_listing_rus_on.html").read_text(encoding="utf-8")
-TRADE = (FIXTURES / "ruson_trade_496200.html").read_text(encoding="utf-8")
+NISTP = (FIXTURES / "listing_nistp.html").read_text(encoding="utf-8")
+RUS_ON = (FIXTURES / "listing_rus_on.html").read_text(encoding="utf-8")
+TRADE = (FIXTURES / "trade_496200.html").read_text(encoding="utf-8")
 URL = Nistp.start_urls[0]
 TRADE_URL = "https://nistp.ru/bankrot/trade_view.php?trade_nid=496200"
 

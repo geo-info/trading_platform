@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from core.db import MongoStore
-from tests.fake_mongo import FakeClient
+from tests.core.fake_mongo import FakeClient
 
 LOT = {"source": "bep", "lot_id": "1", "price": "100,00"}
 

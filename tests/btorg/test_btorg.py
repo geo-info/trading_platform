@@ -16,8 +16,8 @@ from tp.marking.btorg import find_next_page, parse_listing, property_details
 from tp.platforms.btorg.atctrade import Atctrade
 
 FIXTURES = Path(__file__).parent / "fixtures"
-LISTING = (FIXTURES / "btorg_listing_atctrade.html").read_bytes().decode("cp1251")
-LOTS = (FIXTURES / "btorg_lots_13147.html").read_bytes().decode("cp1251")
+LISTING = (FIXTURES / "listing_atctrade.html").read_bytes().decode("cp1251")
+LOTS = (FIXTURES / "lots_13147.html").read_bytes().decode("cp1251")
 URL = Atctrade.start_urls[0]
 LOTS_URL = "https://atctrade.ru/etp/trade/inner-view-lots.html?perspective=inline&id=105491777"
 

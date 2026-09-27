@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from parsel import Selector
 
-from tp.marking.fogsoft import parse_detail
+from tp.marking.fogsoft import parse_attachments, parse_detail, parse_price_schedule
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LOT = "Информация о лоте"
@@ -27,7 +27,7 @@ def detail(name: str) -> dict:
 
 def test_распорка_без_подписи_не_сдвигает_значения_tendergarant() -> None:
     """Ячейка-распорка ``tdContent`` без своей подписи стоит перед «Начальной ценой»."""
-    lot = detail("tendergarant_lot_19208.html")[LOT]
+    lot = detail("lot_tendergarant_19208.html")[LOT]
     assert lot["Начальная цена, руб."] == "533 293,04"
     assert lot["Шаг, % от начальной цены"] == "5,00"
     assert lot["Шаг, руб."] == "26 664,66"
@@ -40,7 +40,7 @@ def test_распорка_без_подписи_не_сдвигает_значе
 
 
 def test_распорка_с_colspan_не_сдвигает_значения_utender() -> None:
-    lot = detail("utender_lot_767399.html")[LOT]
+    lot = detail("lot_utender_767399.html")[LOT]
     assert lot[
         "Сведения об имуществе должника, его составе, характеристиках, описание, порядок ознакомления"
     ].startswith("Разбавитель")
@@ -49,7 +49,7 @@ def test_распорка_с_colspan_не_сдвигает_значения_uten
 
 
 @pytest.mark.parametrize(
-    "name", ["tendergarant_lot_19208.html", "utender_lot_767399.html", "centerr_lot_1170194.html"]
+    "name", ["lot_tendergarant_19208.html", "lot_utender_767399.html", "lot_centerr_1170194.html"]
 )
 def test_пустых_подписей_в_разделах_нет(name: str) -> None:
     for section, pairs in detail(name).items():
@@ -59,7 +59,7 @@ def test_пустых_подписей_в_разделах_нет(name: str) -> 
 # ── форма загрузки документа — не раздел лота ────────────────────────────────
 
 
-@pytest.mark.parametrize("name", ["tendergarant_lot_19208.html", "centerr_lot_1170194.html"])
+@pytest.mark.parametrize("name", ["lot_tendergarant_19208.html", "lot_centerr_1170194.html"])
 def test_форма_загрузки_документа_отбрасывается(name: str) -> None:
     assert "Информация о документе" not in detail(name)
 
@@ -68,7 +68,7 @@ def test_форма_загрузки_документа_отбрасываетс
 
 
 def test_несколько_классов_ефрсб_остаются_раздельными() -> None:
-    lot = detail("centerr_lot_1170194.html")[LOT]
+    lot = detail("lot_centerr_1170194.html")[LOT]
     assert lot["Классификатор ЕФРСБ"] == [
         "Здания (кроме жилых) и сооружения, не включенные в другие группировки",
         "Земельные участки",
@@ -76,6 +76,29 @@ def test_несколько_классов_ефрсб_остаются_разд�
 
 
 def test_цена_centerr_без_рекламной_кнопки() -> None:
-    lot = detail("centerr_lot_1170194.html")[LOT]
+    lot = detail("lot_centerr_1170194.html")[LOT]
     assert lot["Текущая цена, руб."] == "653 937,07"
     assert lot["Начальная цена, руб."] == "653 937,07"
+
+
+# ── документы и график снижения цены ────────────────────────────────────────
+
+
+def test_документы_лота() -> None:
+    attachments = parse_attachments(
+        Selector((FIXTURES / "lot_tendergarant_19208.html").read_text(encoding="utf-8"))
+    )
+    assert attachments
+    assert all(a["url"] and a["name"] for a in attachments)
+    assert all(isinstance(a["signed"], bool) for a in attachments)
+
+
+def test_график_снижения_цены_только_у_публичного_предложения() -> None:
+    schedule = parse_price_schedule(
+        Selector((FIXTURES / "lot_centerr_1170194.html").read_text(encoding="utf-8"))
+    )
+    assert schedule and all(len(row) > 1 for row in schedule)
+    assert (
+        parse_price_schedule(Selector((FIXTURES / "lot_tendergarant_19208.html").read_text(encoding="utf-8")))
+        == []
+    )

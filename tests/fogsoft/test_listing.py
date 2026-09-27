@@ -20,7 +20,7 @@ from tp.common import older_than
 from tp.marking.fogsoft import find_next_target
 from tp.platforms.fogsoft.centerr import Centerr
 
-LISTING = (Path(__file__).parent / "fixtures" / "centerr_listing.html").read_text(encoding="utf-8")
+LISTING = (Path(__file__).parent / "fixtures" / "listing_centerr.html").read_text(encoding="utf-8")
 #: Тот же листинг, но без фильтра: в «Статусе» выбрано «Все».
 UNFILTERED = LISTING.replace('<option value="7" selected>', '<option value="7">')
 URL = Centerr.start_urls[0]

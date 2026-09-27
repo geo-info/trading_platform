@@ -11,7 +11,6 @@ from pydantic import ValidationError
 
 from core.lot import Lot
 from core.parsing import MSK, is_active_status, normalize_status, parse_datetime, parse_price
-from tp.marking.fogsoft import parse_attachments, parse_price_schedule
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -70,19 +69,6 @@ def test_lot_разбирает_сроки_и_хранит_сырые_строк
 def test_lot_не_принимает_незнакомые_поля() -> None:
     with pytest.raises(ValidationError):
         Lot.model_validate({"source": "bep", "lot_id": "1", "trade_id": "0001", "лишнее": 1})
-
-
-def test_документы_лота() -> None:
-    attachments = parse_attachments(page("tendergarant_lot_19208.html"))
-    assert attachments
-    assert all(a["url"] and a["name"] for a in attachments)
-    assert all(isinstance(a["signed"], bool) for a in attachments)
-
-
-def test_график_снижения_цены_только_у_публичного_предложения() -> None:
-    schedule = parse_price_schedule(page("centerr_lot_1170194.html"))
-    assert schedule and all(len(row) > 1 for row in schedule)
-    assert parse_price_schedule(page("tendergarant_lot_19208.html")) == []
 
 
 def test_статус_сводится_к_одному_написанию() -> None:

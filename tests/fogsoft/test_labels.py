@@ -30,13 +30,13 @@ def labels(detail: dict) -> set[str]:
 
 
 def test_московское_время_срезается_etpu_bankrupt() -> None:
-    lot = parse_detail(page("etpu_bankrupt_lot_138856.html"))[LOT]
+    lot = parse_detail(page("lot_etpu_bankrupt_138856.html"))[LOT]
     assert {"Дата проведения", "Дата начала представления заявок на участие"} <= set(lot)
     assert not any("Московское время" in label for label in lot)
 
 
 def test_обеспечение_задатка_сводится_к_обеспечению_заявки() -> None:
-    for name in ("tendergarant_lot_19055.html", "utender_lot_766294.html"):
+    for name in ("lot_tendergarant_19055.html", "lot_utender_766294.html"):
         detail = parse_detail(page(name))
         assert "Обеспечение задатка" not in detail
         assert {"Дата внесения обеспечения", "Порядок внесения и возврата обеспечения"} <= set(
@@ -46,7 +46,7 @@ def test_обеспечение_задатка_сводится_к_обеспе�
 
 
 def test_заключение_договора_сводится_к_информации_о_договоре_utender() -> None:
-    detail = parse_detail(page("utender_lot_766294.html"))
+    detail = parse_detail(page("lot_utender_766294.html"))
     assert "Заключение договора купли-продажи" not in detail
     assert set(detail[CONTRACT]) == {"Дата заключения договора", "Договор заключен с"}
     assert (
@@ -56,20 +56,20 @@ def test_заключение_договора_сводится_к_информ�
 
 
 def test_латинская_p_в_цене_договора() -> None:
-    contract = parse_detail(page("tendergarant_lot_19055.html"))[CONTRACT]
+    contract = parse_detail(page("lot_tendergarant_19055.html"))[CONTRACT]
     assert "Цена договора, руб." in contract
     assert "Цена договора, pуб." not in contract
 
 
 def test_пробел_перед_двоеточием_не_остаётся_в_подписи() -> None:
     """«Тип снижения цены публичного предложения :» — без strip ключ двоился."""
-    lot = raw_detail(page("tendergarant_lot_19055.html"))[LOT]
+    lot = raw_detail(page("lot_tendergarant_19055.html"))[LOT]
     assert "Тип снижения цены публичного предложения" in lot
     assert all(label == label.strip() for label in lot)
 
 
 def test_причина_отказа_выносится_из_раздела_в_список() -> None:
-    detail, refusals = canon_detail(raw_detail(page("tendergarant_lot_19055.html")))
+    detail, refusals = canon_detail(raw_detail(page("lot_tendergarant_19055.html")))
     assert refusals == [{"role": "победителя", "party": "ИП Рузанов Глеб Юрьевич", "reason": "-"}]
     assert not any(label.startswith("Причина отказа") for label in labels(detail))
 

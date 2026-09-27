@@ -28,7 +28,7 @@ ROW = {
     "winner": None,
     "trade_type": "Открытый аукцион с открытой формой представления цены",
 }
-PAGE = Selector((FIXTURES / "tendergarant_lot_19208.html").read_text(encoding="utf-8"))
+PAGE = Selector((FIXTURES / "lot_tendergarant_19208.html").read_text(encoding="utf-8"))
 
 
 def item(**row: object) -> dict:
