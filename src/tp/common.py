@@ -74,3 +74,22 @@ def older_than(deadlines: list[str | None], since: date) -> bool:
     """
     parsed = [d.date() for value in deadlines if (d := parse_datetime(value))]
     return bool(parsed) and max(parsed) < since
+
+
+def rejected(
+    source: str, lot_id: str, url: str, fetched_at: str, row: dict[str, Any], exc: Exception
+) -> dict[str, Any]:
+    """Запасной документ лота, которого модель не пропустила.
+
+    Без него исключение ушло бы во фреймворк, тот посчитал бы ошибку, и лот не
+    попал бы в базу вовсе — из-за одного поля. Документ несёт ключ, сырые
+    поля разбора и текст ошибки в ``validation``, чтобы разбирать было из чего.
+    """
+    return {
+        "source": source,
+        "lot_id": lot_id,
+        "url": url,
+        "fetched_at": fetched_at,
+        "row": row,
+        "validation": {"ok": False, "errors": [f"модель: {exc}"], "unknown_labels": []},
+    }

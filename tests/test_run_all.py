@@ -1,4 +1,4 @@
-"""Проверки сборки площадок: контракт модуля и то, что все шестнадцать видны."""
+"""Проверки сборки площадок: контракт модуля и то, что видны все площадки всех движков."""
 
 from __future__ import annotations
 
@@ -13,29 +13,37 @@ from core.settings import settings as config
 from run_all import Result, build_parser, discover, finish, report, run_params
 from tp.base import TenderFogsoft
 from tp.common import CrawlParams
+from tp.kendo import TenderKendo
 
+#: Пакет площадок -> базовый класс движка и какие площадки в пакете ждём.
 EXPECTED = {
-    "alfalot",
-    "arbbitlot",
-    "arbitat",
-    "bep",
-    "centerr",
-    "etb",
-    "etpu_bankrupt",
-    "etpugra",
-    "gloria_service",
-    "meta_invest",
-    "tender_one",
-    "tendergarant",
-    "utender",
-    "utp_lot",
-    "yuzhnyy_etp",
-    "zakazrf",
+    "fogsoft_platform": (
+        TenderFogsoft,
+        {
+            "alfalot",
+            "arbbitlot",
+            "arbitat",
+            "bep",
+            "centerr",
+            "etb",
+            "etpu_bankrupt",
+            "etpugra",
+            "gloria_service",
+            "meta_invest",
+            "tender_one",
+            "tendergarant",
+            "utender",
+            "utp_lot",
+            "yuzhnyy_etp",
+            "zakazrf",
+        },
+    ),
+    "kendo_platform": (TenderKendo, {"electro_torgi", "seltim", "torgi82", "trade_alliance", "vetp"}),
 }
 
 
 def test_видны_все_площадки() -> None:
-    assert {p.key for p in discover()} == EXPECTED
+    assert {p.key for p in discover()} == set().union(*(keys for _, keys in EXPECTED.values()))
 
 
 def test_у_каждой_площадки_свой_класс_и_стартовый_адрес() -> None:
@@ -44,10 +52,12 @@ def test_у_каждой_площадки_свой_класс_и_стартов�
     assert len({p.parser_cls.start_urls[0] for p in platforms}) == len(platforms)
 
 
-def test_площадки_наследуют_базовый_класс() -> None:
+def test_площадки_наследуют_базовый_класс_своего_движка() -> None:
     for platform in discover():
+        package = platform.module.__name__.split(".")[1]
+        engine, keys = EXPECTED[package]
         cls = platform.parser_cls
-        assert issubclass(cls, TenderFogsoft) and cls is not TenderFogsoft, platform.key
+        assert platform.key in keys and issubclass(cls, engine) and cls is not engine, platform.key
         # start_urls выводится из DOMAIN в __init_subclass__, а не пишется руками.
         assert cls.start_urls == [f"{cls.DOMAIN.rstrip('/')}/{cls.LISTING_PATH}"], platform.key
 

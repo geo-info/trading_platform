@@ -40,7 +40,7 @@ from core.known_labels import unknown_labels
 from core.labels import canon_detail
 from core.lot import Lot
 from core.parsing import clean, parse_price
-from tp.common import BASE_SETTINGS, CrawlParams, older_than
+from tp.common import BASE_SETTINGS, CrawlParams, older_than, rejected
 
 # ── разбор ───────────────────────────────────────────────────────────────────
 
@@ -421,12 +421,5 @@ def build_item(source: str, lot_id: str, url: str, row: dict[str, Any], page: Se
             }
         )
     except ValidationError as exc:
-        return {
-            "source": source,
-            "lot_id": lot_id,
-            "url": url,
-            "fetched_at": fetched_at,
-            "row": row,
-            "validation": {"ok": False, "errors": [f"модель: {exc}"], "unknown_labels": []},
-        }
+        return rejected(source, lot_id, url, fetched_at, row, exc)
     return lot.model_dump()
