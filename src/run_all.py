@@ -36,7 +36,7 @@ from pymongo import AsyncMongoClient
 from core.db import MongoStore
 from core.db.mongo_store import new_run_id
 from core.settings import settings as config
-from tp import platform as platform_pkg
+from tp import fogsoft_platform as platform_pkg
 from tp.base import TenderFogsoft
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ def finish(result: Result, outcome: Outcome) -> Result:
 
 
 def discover() -> list[Platform]:
-    """Площадки — это модули пакета ``tp.platform``, по одной на модуль.
+    """Площадки — это модули пакета ``tp.fogsoft_platform``, по одной на модуль.
 
     Модуль, который не дотягивает до контракта, не пропускается молча, а
     роняет запуск со списком нарушений: «почему мой парсер не виден» — худший
@@ -123,7 +123,7 @@ def discover() -> list[Platform]:
 
     if broken:
         raise RuntimeError(
-            "Модули в tp.platform не соответствуют контракту (ровно один наследник "
+            "Модули в tp.fogsoft_platform не соответствуют контракту (ровно один наследник "
             "TenderFogsoft с непустым name):\n  " + "\n  ".join(broken)
         )
     return found

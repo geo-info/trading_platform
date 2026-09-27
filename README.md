@@ -72,13 +72,13 @@ uv run python -m run_all --list              # что вообще есть
 ## Устройство
 
 ```
-run_all.py            обход площадок: запуск, прогресс, итоговая таблица
-core/settings.py      настройки из окружения и .env
-core/db/              Store — интерфейс, MongoStore — реализация
-tp/base.py            TenderFogsoft: разбор, пагинация, обход
-tp/platform/*.py      по файлу на площадку: имя, домен, особенность
-tp/hooks/             сквозные обязанности (проверка inprotect)
-tp/certs/             недостающие звенья TLS-цепочек
+run_all.py                обход площадок: запуск, прогресс, итоговая таблица
+core/settings.py          настройки из окружения и .env
+core/db/                  Store — интерфейс, MongoStore — реализация
+tp/base.py                TenderFogsoft: разбор, пагинация, обход
+tp/fogsoft_platform/*.py  по файлу на площадку: имя, домен, особенность
+tp/hooks/                 сквозные обязанности (проверка inprotect)
+tp/certs/                 недостающие звенья TLS-цепочек
 ```
 
 Площадка — это несколько строк:
