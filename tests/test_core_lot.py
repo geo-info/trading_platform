@@ -89,3 +89,17 @@ def test_статус_сводится_к_одному_написанию() -> N
     assert normalize_status("Прием заявок") == normalize_status("Приём заявок") == "Приём заявок"
     lot = Lot.model_validate({"source": "bep", "lot_id": "1", "trade_id": "1", "status": "Прием заявок"})
     assert (lot.status, lot.status_raw, lot.is_active) == ("Приём заявок", "Прием заявок", True)
+
+
+def test_у_общего_лота_нет_сверок_itender() -> None:
+    """Страница лота у других движков — плоский словарь, а не разделы iTender:
+    сверки iTender дали бы ошибку на каждом таком лоте."""
+    lot = Lot.model_validate(
+        {
+            "source": "seltim",
+            "lot_id": "3159_1",
+            "trade_id": "3159",
+            "detail": {"Наименование": "ООО «Ромашка»"},
+        }
+    )
+    assert lot.validation == {"ok": True, "errors": [], "unknown_labels": []}

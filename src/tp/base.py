@@ -29,45 +29,20 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from typing import Any, ClassVar
 
-from collector import Crawler, Response, Settings
+from collector import Crawler, Response
 from parsel import Selector
 from pydantic import ValidationError
 
+from core.known_labels import unknown_labels
 from core.labels import canon_detail
 from core.lot import Lot
-from core.parsing import parse_datetime, parse_price
-from core.settings import settings as config
-
-#: Настройки HTTP, общие для всех площадок движка. Площадка со своей
-#: особенностью narrows их через ``replace`` — см. arbbitlot и meta_invest.
-#:
-#: concurrency остаётся единицей, и это измерено, а не осторожность: площадка
-#: обрабатывает наши запросы по одному, поэтому латентность растёт ровно
-#: пропорционально числу воркеров, а запросов в секунду не прибавляется.
-#:
-#: max_errors — сколько упавших запросов площадка переживает. Фреймворк по
-#: умолчанию останавливает обход на первом, и одна битая страница лота роняла
-#: бы площадку на тысяче лотов. Разбор лота сам почти не падает (невалидный
-#: лот пишется запасным документом), так что ошибка здесь — это сеть после
-#: ретраев или вёрстка, сломанная для всех страниц. 50 — около 2,5% от
-#: 2000 запросов обхода в 100 страниц: случайные сбои проходят, а сломанная
-#: вёрстка останавливает площадку через 50 впустую потраченных запросов, а не
-#: через две тысячи. На один прогон — ``--max-errors``.
-BASE_SETTINGS = Settings(concurrency=1, delay=config.delay, timeout=config.http_timeout, max_errors=50)
-
+from core.parsing import clean, parse_price
+from tp.common import BASE_SETTINGS, CrawlParams, older_than
 
 # ── разбор ───────────────────────────────────────────────────────────────────
-
-
-def clean(value: str | None) -> str | None:
-    """Схлопнуть пробелы и неразрывные пробелы; пустая строка — это ``None``."""
-    if value is None:
-        return None
-    return re.sub(r"\s+", " ", value.replace("\xa0", " ")).strip() or None
 
 
 def cell(node: Selector) -> str | None:
@@ -127,16 +102,8 @@ def search_button(page: Selector) -> str | None:
 
 
 def page_is_older(rows: list[dict[str, Any]], since: date) -> bool:
-    """Все лоты страницы закрыли приём заявок раньше ``since`` — дальше листать незачем.
-
-    Листинг отсортирован по номеру торгов, то есть по публикации, а даты
-    публикации в нём нет. Ближайшая замена — срок приёма заявок: он растёт
-    вместе с номером, хоть и не строго (у публичного предложения интервалы
-    тянутся месяцами). Поэтому останавливаемся не на первой старой строке, а
-    когда старая вся страница. Строки без даты решения не принимают.
-    """
-    deadlines = [d.date() for row in rows if (d := parse_datetime(row["bids_end"]))]
-    return bool(deadlines) and max(deadlines) < since
+    """Все лоты страницы закрыли приём заявок раньше ``since``, см. ``older_than``."""
+    return older_than([row["bids_end"] for row in rows], since)
 
 
 def parse_rows(page: Selector) -> list[dict[str, Any]]:
@@ -280,23 +247,47 @@ def parse_price_schedule(page: Selector) -> list[dict[str, str]]:
     return schedule
 
 
-@dataclass(frozen=True)
-class FogsoftParams:
-    """Что задаётся на один прогон: предел страниц и окно по дате.
+#: Раздел страницы, с которым сверяется листинг.
+LOT_SECTION = "Информация о лоте"
+#: Без этих полей страница лота — не страница лота: разбор промахнулся.
+REQUIRED = ("Номер", "Наименование", "Статус", "Начальная цена, руб.", "Классификатор ЕФРСБ")
 
-    Раньше это были атрибуты класса, и run_all переписывал их у класса на весь
-    процесс: два обхода в одном процессе видели значения друг друга. Теперь
-    фреймворк собирает свой экземпляр на каждый прогон, приводит строки из
-    командной строки к типам и отказывает в незнакомом ключе до первого
-    запроса — окно, молча не применённое из-за опечатки, обошло бы всё.
 
-    Умолчания — из ``core.settings``, то есть из окружения.
+class FogsoftLot(Lot):
+    """Лот iTender: общие сверки плюс сверки листинга со страницей лота.
+
+    Страница лота здесь — разделы с подписями, и у движка есть реестр
+    известных подписей. У других движков страница устроена иначе, поэтому
+    эти сверки — не свойство лота вообще, а свойство лота iTender.
     """
 
-    #: Предохранитель обхода. Без потолка ошибка в пагинации крутится вечно.
-    max_pages: int = config.max_pages
-    #: Окно по дате, см. ``Settings.since`` и ``page_is_older``.
-    since: date | None = config.since
+    def problems(self) -> list[str]:
+        """Листинг и страница — два разбора одного лота: чем они расходятся.
+
+        Расхождение почти всегда ошибка разбора, а не площадки: так нашёлся
+        сдвиг пар на tendergarant, где «Начальная цена» съехала в «Шаг».
+        """
+        page = self.extra.get(LOT_SECTION) or {}
+        errors = [f"нет «{label}» в «{LOT_SECTION}»" for label in REQUIRED if not page.get(label)]
+
+        # Цена листинга — это начальная цена лота или, у публичного предложения,
+        # текущая. Сравниваются числа: строки расходятся пробелами.
+        prices = [
+            p
+            for label in ("Начальная цена, руб.", "Текущая цена, руб.")
+            if (p := parse_price(page.get(label)))
+        ]
+        if self.price is not None and prices and not any(abs(self.price - p) < 0.005 for p in prices):
+            errors.append(f"цена листинга {self.price} не равна ни начальной, ни текущей {prices}")
+
+        for field, label in (("status_raw", "Статус"), ("lot_num", "Номер")):
+            listing, detail = getattr(self, field), page.get(label)
+            if listing and detail and listing != detail:
+                errors.append(f"{field} листинга «{listing}» ≠ «{label}» страницы «{detail}»")
+        return errors + super().problems()
+
+    def unknown(self) -> list[str]:
+        return unknown_labels(self.extra)
 
 
 # ── парсер ───────────────────────────────────────────────────────────────────
@@ -309,7 +300,7 @@ class TenderFogsoft(Crawler):
     LISTING_PATH: ClassVar[str] = "public/purchases-all/"
 
     settings = BASE_SETTINGS
-    params = FogsoftParams()
+    params = CrawlParams()
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -401,7 +392,7 @@ def build_item(source: str, lot_id: str, url: str, row: dict[str, Any], page: Se
     fetched_at = datetime.now(UTC).isoformat()
     extra, refusals = canon_detail(raw_detail(page))
     try:
-        lot = Lot.model_validate(
+        lot = FogsoftLot.model_validate(
             {
                 "source": source,
                 "lot_id": lot_id,
@@ -439,12 +430,3 @@ def build_item(source: str, lot_id: str, url: str, row: dict[str, Any], page: Se
             "validation": {"ok": False, "errors": [f"модель: {exc}"], "unknown_labels": []},
         }
     return lot.model_dump()
-
-
-def narrow(**overrides: Any) -> Settings:
-    """Настройки площадки: общие плюс её особенность.
-
-    Через ``replace``, а не конструктором, чтобы площадка со своей причудой
-    не теряла общие ``delay`` и ``timeout``, когда те поменяются.
-    """
-    return replace(BASE_SETTINGS, **overrides)

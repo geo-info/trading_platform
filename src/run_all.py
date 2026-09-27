@@ -30,14 +30,13 @@ from datetime import date
 from importlib import import_module
 from typing import Any
 
-from collector import Crawl, Outcome, Stats, crawl_many
+from collector import Crawl, Crawler, Outcome, Stats, crawl_many
 from pymongo import AsyncMongoClient
 
+import tp
 from core.db import MongoStore
 from core.db.mongo_store import new_run_id
 from core.settings import settings as config
-from tp import fogsoft_platform as platform_pkg
-from tp.base import TenderFogsoft
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True, slots=True)
 class Platform:
     key: str
-    parser_cls: type[TenderFogsoft]
+    parser_cls: type[Crawler]
     module: Any
 
 
@@ -93,7 +92,11 @@ def finish(result: Result, outcome: Outcome) -> Result:
 
 
 def discover() -> list[Platform]:
-    """Площадки — это модули пакета ``tp.fogsoft_platform``, по одной на модуль.
+    """Площадки — это модули пакетов ``tp.<движок>_platform``, по одной на модуль.
+
+    Модуль площадки объявляет ровно один краулер с непустым ``name``. Базовые
+    классы движков живут вне этих пакетов, а импортированный в модуль чужой
+    класс площадкой этого модуля не считается.
 
     Модуль, который не дотягивает до контракта, не пропускается молча, а
     роняет запуск со списком нарушений: «почему мой парсер не виден» — худший
@@ -102,31 +105,37 @@ def discover() -> list[Platform]:
     found: list[Platform] = []
     broken: list[str] = []
 
-    for info in sorted(pkgutil.iter_modules(platform_pkg.__path__), key=lambda i: i.name):
-        # Подпакеты — не площадки по определению.
-        if info.ispkg:
-            continue
+    packages = [
+        info.name
+        for info in pkgutil.iter_modules(tp.__path__)
+        if info.ispkg and info.name.endswith("_platform")
+    ]
+    for package in sorted(packages):
+        package_path = import_module(f"tp.{package}").__path__
+        for info in sorted(pkgutil.iter_modules(package_path), key=lambda i: i.name):
+            if info.ispkg:
+                continue
+            module = import_module(f"tp.{package}.{info.name}")
+            named = [
+                value
+                for value in vars(module).values()
+                if isinstance(value, type)
+                and issubclass(value, Crawler)
+                and value.__module__ == module.__name__
+                and getattr(value, "name", None)
+            ]
+            if len(named) != 1:
+                broken.append(f"{package}.{info.name}: краулеров с именем — {len(named)}, нужен ровно один")
+                continue
+            found.append(Platform(key=named[0].name, parser_cls=named[0], module=module))
 
-        module = import_module(f"{platform_pkg.__name__}.{info.name}")
-        classes = [
-            value
-            for value in vars(module).values()
-            if isinstance(value, type) and issubclass(value, TenderFogsoft) and value is not TenderFogsoft
-        ]
-        named = [cls for cls in classes if getattr(cls, "name", None)]
-
-        if len(named) != 1:
-            broken.append(f"{info.name}: классов TenderFogsoft с именем — {len(named)}, нужен ровно один")
-            continue
-
-        found.append(Platform(key=named[0].name, parser_cls=named[0], module=module))
-
+    keys = [p.key for p in found]
+    broken += [
+        f"имя площадки {key!r} занято дважды" for key in sorted({k for k in keys if keys.count(k) > 1})
+    ]
     if broken:
-        raise RuntimeError(
-            "Модули в tp.fogsoft_platform не соответствуют контракту (ровно один наследник "
-            "TenderFogsoft с непустым name):\n  " + "\n  ".join(broken)
-        )
-    return found
+        raise RuntimeError("Площадки в tp.*_platform не соответствуют контракту:\n  " + "\n  ".join(broken))
+    return sorted(found, key=lambda p: p.key)
 
 
 async def run(platforms: list[Platform], params: dict[str, Any], quiet: bool) -> list[Result]:

@@ -8,8 +8,7 @@ import pytest
 from parsel import Selector
 
 from core.known_labels import KNOWN_LABELS, unknown_labels
-from core.lot import Lot
-from tp.base import build_item
+from tp.base import FogsoftLot, build_item
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LOT = "Информация о лоте"
@@ -82,7 +81,7 @@ def test_у_публичного_предложения_сроки_не_свер
 def test_обязательное_поле_страницы_лота(label: str) -> None:
     good = item()
     detail = {**good["extra"], LOT: {k: v for k, v in good["extra"][LOT].items() if k != label}}
-    lot = Lot.model_validate({**good, "extra": detail})
+    lot = FogsoftLot.model_validate({**good, "extra": detail})
     assert f"нет «{label}» в «{LOT}»" in lot.validation["errors"]
     assert lot.validation["ok"] is False
 
@@ -93,7 +92,7 @@ def test_обязательное_поле_страницы_лота(label: str)
 def test_незнакомая_подпись_не_влияет_на_ok() -> None:
     good = item()
     detail = {**good["extra"], LOT: {**good["extra"][LOT], "Цвет лота": "синий"}, "Новый раздел": {"А": "б"}}
-    lot = Lot.model_validate({**good, "extra": detail})
+    lot = FogsoftLot.model_validate({**good, "extra": detail})
     assert lot.validation["unknown_labels"] == [f"{LOT} :: Цвет лота", "Новый раздел :: *"]
     assert lot.validation["ok"] is True
 

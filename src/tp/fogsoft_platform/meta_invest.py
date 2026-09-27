@@ -10,7 +10,8 @@ uv run python -m run_all meta_invest
 
 from __future__ import annotations
 
-from tp.base import TenderFogsoft, narrow
+from tp.base import TenderFogsoft
+from tp.common import narrow
 
 
 class MetaInvest(TenderFogsoft):

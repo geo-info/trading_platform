@@ -39,6 +39,13 @@ _FINISHED_MARKERS = (
 )
 
 
+def clean(value: str | None) -> str | None:
+    """Схлопнуть пробелы и неразрывные пробелы; пустая строка — это ``None``."""
+    if value is None:
+        return None
+    return re.sub(r"\s+", " ", value.replace("\xa0", " ")).strip() or None
+
+
 def is_active_status(status: str | None) -> bool:
     """Идут ли ещё торги. Незнакомый или пустой статус — идут."""
     if not status:

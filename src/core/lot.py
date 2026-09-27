@@ -9,10 +9,11 @@
 не было; статус сведён к одному написанию (сырой — в ``status_raw``); сроки —
 по Москве, а не наивные.
 
-Итог проверки лежит в самом документе, в ``validation``: сверки листинга со
-страницей лота (``check``) и незнакомые подписи страницы
-(``core.known_labels``). Расхождение — строка в ``errors``, а не исключение:
-лот с кривым полем полезен целиком, а исключение стоило бы его потери.
+Итог проверки лежит в самом документе, в ``validation``: чем лот противоречит
+сам себе (``problems``) и какие подписи страницы движку незнакомы
+(``unknown``). Расхождение — строка в ``errors``, а не исключение: лот с кривым
+полем полезен целиком, а исключение стоило бы его потери. Своё движок
+дописывает в наследнике — см. ``tp.base.FogsoftLot``.
 """
 
 from __future__ import annotations
@@ -22,13 +23,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from core.known_labels import unknown_labels
-from core.parsing import is_active_status, normalize_status, parse_datetime, parse_price
-
-#: Раздел страницы, с которым сверяется листинг.
-LOT_SECTION = "Информация о лоте"
-#: Без этих полей страница лота — не страница лота: разбор промахнулся.
-REQUIRED = ("Номер", "Наименование", "Статус", "Начальная цена, руб.", "Классификатор ЕФРСБ")
+from core.parsing import is_active_status, normalize_status, parse_datetime
 
 
 class Lot(BaseModel):
@@ -90,40 +85,25 @@ class Lot(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self) -> Lot:
-        errors = check(self)
-        self.validation = {"ok": not errors, "errors": errors, "unknown_labels": unknown_labels(self.extra)}
+        errors = self.problems()
+        self.validation = {"ok": not errors, "errors": errors, "unknown_labels": self.unknown()}
         return self
 
+    def problems(self) -> list[str]:
+        """Чем лот противоречит сам себе. Движок дописывает свои сверки.
 
-def check(lot: Lot) -> list[str]:
-    """Сверки листинга со страницей лота: чем они расходятся.
+        Общая — одна: у аукциона приём заявок не может кончиться позже торгов.
+        """
+        if (
+            self.trade_type
+            and "аукцион" in self.trade_type.lower()
+            and self.bidding_deadline
+            and self.result_date
+            and self.bidding_deadline > self.result_date
+        ):
+            return [f"приём заявок до {self.bidding_date_raw} позже торгов {self.event_date_raw}"]
+        return []
 
-    Листинг и страница — два разбора одного лота, и расхождение между ними
-    почти всегда ошибка разбора, а не площадки: так нашёлся сдвиг пар на
-    tendergarant, где «Начальная цена» съехала в «Шаг».
-    """
-    page = lot.extra.get(LOT_SECTION) or {}
-    errors = [f"нет «{label}» в «{LOT_SECTION}»" for label in REQUIRED if not page.get(label)]
-
-    # Цена листинга — это начальная цена лота или, у публичного предложения,
-    # текущая. Сравниваются числа: строки расходятся пробелами.
-    prices = [
-        p for label in ("Начальная цена, руб.", "Текущая цена, руб.") if (p := parse_price(page.get(label)))
-    ]
-    if lot.price is not None and prices and not any(abs(lot.price - p) < 0.005 for p in prices):
-        errors.append(f"цена листинга {lot.price} не равна ни начальной, ни текущей {prices}")
-
-    for field, label in (("status_raw", "Статус"), ("lot_num", "Номер")):
-        listing, detail = getattr(lot, field), page.get(label)
-        if listing and detail and listing != detail:
-            errors.append(f"{field} листинга «{listing}» ≠ «{label}» страницы «{detail}»")
-
-    if (
-        lot.trade_type
-        and "аукцион" in lot.trade_type.lower()
-        and lot.bidding_deadline
-        and lot.result_date
-        and lot.bidding_deadline > lot.result_date
-    ):
-        errors.append(f"приём заявок до {lot.bidding_date_raw} позже торгов {lot.event_date_raw}")
-    return errors
+    def unknown(self) -> list[str]:
+        """Подписи страницы, которых движок не знает. Без реестра — никаких."""
+        return []

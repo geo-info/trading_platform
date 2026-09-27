@@ -11,7 +11,8 @@ from collector.crawler.params import resolve_params
 
 from core.settings import settings as config
 from run_all import Result, build_parser, discover, finish, report, run_params
-from tp.base import FogsoftParams, TenderFogsoft
+from tp.base import TenderFogsoft
+from tp.common import CrawlParams
 
 EXPECTED = {
     "alfalot",
@@ -62,7 +63,7 @@ def test_площадка_переживает_отдельные_сбои_но_
 
 def test_параметры_площадки_объявлены_с_умолчаниями_из_настроек() -> None:
     declared = TenderFogsoft.params
-    assert isinstance(declared, FogsoftParams)
+    assert isinstance(declared, CrawlParams)
     assert (declared.max_pages, declared.since) == (config.max_pages, config.since)
     # Предел и окно больше не атрибуты класса, которые run_all переписывал.
     assert not hasattr(TenderFogsoft, "MAX_PAGES") and not hasattr(TenderFogsoft, "SINCE")
