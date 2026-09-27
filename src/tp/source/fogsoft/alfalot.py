@@ -1,16 +1,16 @@
 """АЛЬФАЛОТ — банкротные торги, движок iTender.
 
 На входе стоит JS-проверка отпечатка inprotect, и без неё листинг
-не приходит вообще. Она целиком живёт в хуке ``tp.hooks.inprotect``.
+не приходит вообще. Она целиком живёт в хуке ``core.hooks.inprotect``.
 
 uv run python -m run_all alfalot
 """
 
 from __future__ import annotations
 
+from core.hooks.inprotect import solve_inprotect
 from tp.common import narrow
 from tp.fogsoft import TenderFogsoft
-from tp.hooks.inprotect import solve_inprotect
 
 
 class Alfalot(TenderFogsoft):

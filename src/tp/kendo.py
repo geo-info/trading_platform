@@ -4,9 +4,9 @@
 странице торгов. Поэтому обход в два уровня: страница листинга -> заход в
 каждые торги -> по айтему на лот. Повторный заход в одни торги — торги,
 попавшие на две страницы листинга, — отсекает дедупликация запросов
-фреймворка: адрес торгов один. Разметка — в ``tp.marking.kendo``.
+фреймворка: адрес торгов один. Разметка — в ``tp.source.kendo.marking``.
 
-Новая площадка — модуль в ``tp.platforms.kendo``::
+Новая площадка — модуль в ``tp.source.kendo``::
 
     class Seltim(TenderKendo):
         name = "seltim"
@@ -20,7 +20,8 @@ from typing import Any, ClassVar
 from collector import Crawler, Response
 
 from tp.common import BASE_SETTINGS, CrawlParams, check_status, lot_item, paging_stops
-from tp.marking.kendo import find_next_page, parse_listing, parse_lots
+from tp.source.kendo.marking.listing import find_next_page, parse_listing
+from tp.source.kendo.marking.trade import parse_lots
 
 
 class TenderKendo(Crawler):

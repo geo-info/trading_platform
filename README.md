@@ -6,10 +6,10 @@
 
 | движок | площадок | площадки | запуск |
 |---|---|---|---|
-| iTender (fogsoft) | 16 | `tp/platforms/fogsoft` | `uv run start_fogsoft` |
-| Kendo-ETP | 5 | `tp/platforms/kendo` | `uv run start_kendo` |
-| btorg (edoc-ETP) | 6 | `tp/platforms/btorg` | `uv run start_btorg` |
-| rus-on | 5 | `tp/platforms/ruson` | `uv run start_ruson` |
+| iTender (fogsoft) | 16 | `tp/source/fogsoft` | `uv run start_fogsoft` |
+| Kendo-ETP | 5 | `tp/source/kendo` | `uv run start_kendo` |
+| btorg (edoc-ETP) | 6 | `tp/source/btorg` | `uv run start_btorg` |
+| rus-on | 5 | `tp/source/ruson` | `uv run start_ruson` |
 
 ## База
 
@@ -59,7 +59,8 @@ uv run start_kendo --max-pages 2             # только площадки о�
 ```
 
 `start_fogsoft`, `start_kendo`, `start_btorg`, `start_ruson` — тот же
-`run_all` с теми же флагами, но с площадками только своего движка.
+`run_all` с теми же флагами, но с площадками только своего движка. Это
+`tp/run_<движок>.py`: `uv run python -m tp.run_kendo` делает то же самое.
 
 ## Настройки
 
@@ -85,31 +86,29 @@ uv run start_kendo --max-pages 2             # только площадки о�
 
 ```
 src/
-  run_all.py              запуск: все площадки или один движок (start_<движок>)
+  run_all.py              запуск всех площадок; общий для скриптов движков
   core/                   общее без привязки к движку
     settings.py           настройки из окружения и .env
     parsing.py            разбор значений: цена, дата, статус
     lot.py                модель лота и итог его проверки
     db/                   Store — интерфейс, MongoStore — реализация
-  tp/
-    common.py             общее для движков: настройки HTTP, параметры прогона, айтем лота
-    fogsoft.py            обход движка: краулер, запросы, пагинация, айтемы
-    kendo.py              ...
-    btorg.py
-    ruson.py
-    marking/              разметка: всё, что читает страницы (xpath, селекторы)
-      fogsoft.py          ... по модулю на движок
-      fogsoft_labels.py   сведение подписей страницы iTender к одному написанию
-      fogsoft_known_labels.py  реестр известных подписей iTender
-    platforms/<движок>/   площадки: по модулю на площадку — имя, домен, особенность
     hooks/                сквозные обязанности (проверка inprotect)
     certs/                недостающие звенья TLS-цепочек
+  tp/
+    common.py             общее для движков: настройки HTTP, параметры прогона, айтем лота
+    <движок>.py           обход движка: краулер, запросы, пагинация, айтемы
+    run_<движок>.py       запуск площадок движка (uv run start_<движок>)
+    source/<движок>/      площадки движка, по модулю на площадку
+      marking/            разметка движка, по модулю на страницу:
+        listing.py        листинг
+        trade.py          страница торгов (у fogsoft — lot.py, страница лота;
+                          там же labels.py и known_labels.py — подписи страницы)
 tests/
   core/ fogsoft/ kendo/ btorg/ ruson/   тесты по тем же разделам,
                                         фикстуры — в <движок>/fixtures
 ```
 
-Площадка — это несколько строк в `tp/platforms/<движок>/`:
+Площадка — это несколько строк в `tp/source/<движок>/`:
 
 ```python
 class Centerr(TenderFogsoft):

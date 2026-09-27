@@ -3,9 +3,9 @@
 Листинг сводится к торгам по ссылке ``trade_view.php``, а лоты и цены — на
 странице торгов. Обход в два уровня: страница листинга -> заход в каждые торги
 -> по айтему на лот. Пейджер — JavaScript ``pagenum_send(N)``, страница
-берётся GET-ом ``?pagenum=N``. Разметка — в ``tp.marking.ruson``.
+берётся GET-ом ``?pagenum=N``. Разметка — в ``tp.source.ruson.marking``.
 
-Новая площадка — модуль в ``tp.platforms.ruson``; путь листинга у части
+Новая площадка — модуль в ``tp.source.ruson``; путь листинга у части
 площадок свой::
 
     class Sistematorg(TenderRuson):
@@ -21,7 +21,8 @@ from typing import Any, ClassVar
 from collector import Crawler, Response
 
 from tp.common import BASE_SETTINGS, CrawlParams, check_status, lot_item, paging_stops
-from tp.marking.ruson import find_next_page, parse_listing, parse_lots
+from tp.source.ruson.marking.listing import find_next_page, parse_listing
+from tp.source.ruson.marking.trade import parse_lots
 
 
 class TenderRuson(Crawler):

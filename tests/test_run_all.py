@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tomllib
 from datetime import date
+from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,7 +12,6 @@ import pytest
 from collector import Outcome, Stats
 from collector.crawler.params import resolve_params
 
-import run_all
 from core.settings import settings as config
 from run_all import Result, build_parser, discover, finish, report, run_params
 from tp.btorg import TenderBtorg
@@ -142,14 +142,14 @@ def test_дошедшая_до_конца_площадка_готова() -> Non
 
 @pytest.mark.parametrize("engine", ["fogsoft", "kendo", "btorg", "ruson"])
 def test_скрипт_движка_видит_только_его_площадки(engine: str, capsys: pytest.CaptureFixture[str]) -> None:
-    start = getattr(run_all, f"start_{engine}")
+    start = import_module(f"tp.run_{engine}").main
     assert start(["--list"]) == 0
     listed = {line.split()[0] for line in capsys.readouterr().out.splitlines() if line.strip()}
     assert listed == EXPECTED[engine][1]
 
 
 def test_площадка_чужого_движка_не_запускается(capsys: pytest.CaptureFixture[str]) -> None:
-    assert run_all.start_kendo(["centerr"]) == 2
+    assert import_module("tp.run_kendo").main(["centerr"]) == 2
     assert "centerr" in capsys.readouterr().err
 
 
@@ -158,4 +158,4 @@ def test_скрипты_движков_объявлены_в_pyproject() -> None
     declared = scripts["project"]["scripts"]
     assert declared["run_all"] == "run_all:main"
     for engine in EXPECTED:
-        assert declared[f"start_{engine}"] == f"run_all:start_{engine}"
+        assert declared[f"start_{engine}"] == f"tp.run_{engine}:main"

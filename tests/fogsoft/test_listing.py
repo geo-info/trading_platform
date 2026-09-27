@@ -17,8 +17,8 @@ from collector import CrawlerContext, Request, Response
 from parsel import Selector
 
 from tp.common import older_than
-from tp.marking.fogsoft import find_next_target
-from tp.platforms.fogsoft.centerr import Centerr
+from tp.source.fogsoft.centerr import Centerr
+from tp.source.fogsoft.marking.listing import find_next_target
 
 LISTING = (Path(__file__).parent / "fixtures" / "listing_centerr.html").read_text(encoding="utf-8")
 #: Тот же листинг, но без фильтра: в «Статусе» выбрано «Все».

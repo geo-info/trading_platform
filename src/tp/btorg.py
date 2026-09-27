@@ -3,12 +3,12 @@
 В листинге ``/etp/trade/list.html?page=N`` строка на торги, но цен нет: лоты и
 цены — в AJAX-фрагменте торгов, за которым заходим с признаком XHR. Обход в
 два уровня: страница листинга -> фрагмент лотов каждых торгов -> по айтему на
-лот. Разметка — в ``tp.marking.btorg``.
+лот. Разметка — в ``tp.source.btorg.marking``.
 
 Окно ``since`` на btorg не действует: в листинге нет срока приёма заявок, а
 остановка по его началу теряла бы торги, начатые раньше окна и ещё идущие.
 
-Новая площадка — модуль в ``tp.platforms.btorg``::
+Новая площадка — модуль в ``tp.source.btorg``::
 
     class Atctrade(TenderBtorg):
         name = "atctrade"
@@ -22,7 +22,8 @@ from typing import Any, ClassVar
 from collector import Crawler, Response
 
 from tp.common import BASE_SETTINGS, CrawlParams, check_status, lot_item, paging_stops
-from tp.marking.btorg import find_next_page, parse_listing, parse_lots
+from tp.source.btorg.marking.listing import find_next_page, parse_listing
+from tp.source.btorg.marking.trade import parse_lots
 
 #: Фрагмент лотов отдаётся только на AJAX-запрос.
 XHR = {"X-Requested-With": "XMLHttpRequest"}

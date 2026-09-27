@@ -2,7 +2,7 @@
 
 Шестнадцать площадок на этом движке отличаются друг от друга доменом и парой
 настроек — вёрстка у них одна. Поэтому обход живёт здесь, разметка — в
-``tp.marking.fogsoft``, а модуль площадки — это её имя, адрес и то, чем она
+``tp.source.fogsoft.marking``, а модуль площадки — это её имя, адрес и то, чем она
 особенная.
 
 Обход в два уровня: листинг даёт строку таблицы и ссылку на лот, страница лота
@@ -20,7 +20,7 @@
 формы, как отправил бы браузер, с токенами ``__CVIEWSTATE`` и
 ``__EVENTVALIDATION`` в их числе; парсер называет только то, что меняет.
 
-Новая площадка — модуль в ``tp.platforms.fogsoft``::
+Новая площадка — модуль в ``tp.source.fogsoft``::
 
     class Centerr(TenderFogsoft):
         name = "centerr"
@@ -40,20 +40,22 @@ from pydantic import ValidationError
 from core.lot import Lot
 from core.parsing import parse_price
 from tp.common import BASE_SETTINGS, CrawlParams, paging_stops, rejected
-from tp.marking.fogsoft import (
-    LOT_SECTION,
-    REQUIRED,
+from tp.source.fogsoft.marking.known_labels import unknown_labels
+from tp.source.fogsoft.marking.labels import canon_detail
+from tp.source.fogsoft.marking.listing import (
     filter_resets,
     find_next_target,
     has_viewstate,
-    parse_attachments,
-    parse_price_schedule,
     parse_rows,
-    raw_detail,
     search_button,
 )
-from tp.marking.fogsoft_known_labels import unknown_labels
-from tp.marking.fogsoft_labels import canon_detail
+from tp.source.fogsoft.marking.lot import (
+    LOT_SECTION,
+    REQUIRED,
+    parse_attachments,
+    parse_price_schedule,
+    raw_detail,
+)
 
 
 class FogsoftLot(Lot):

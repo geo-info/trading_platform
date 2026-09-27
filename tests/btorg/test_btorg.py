@@ -12,8 +12,9 @@ from typing import Any
 from collector import CrawlerContext, Request, Response
 from parsel import Selector
 
-from tp.marking.btorg import find_next_page, parse_listing, property_details
-from tp.platforms.btorg.atctrade import Atctrade
+from tp.source.btorg.atctrade import Atctrade
+from tp.source.btorg.marking.listing import find_next_page, parse_listing
+from tp.source.btorg.marking.trade import property_details
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LISTING = (FIXTURES / "listing_atctrade.html").read_bytes().decode("cp1251")

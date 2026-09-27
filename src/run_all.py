@@ -37,7 +37,7 @@ from pymongo import AsyncMongoClient
 from core.db import MongoStore
 from core.db.mongo_store import new_run_id
 from core.settings import settings as config
-from tp import platforms
+from tp import source
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True, slots=True)
 class Platform:
     key: str
-    #: Движок — имя пакета площадки в ``tp.platforms``.
+    #: Движок — имя пакета площадки в ``tp.source``.
     engine: str
     parser_cls: type[Crawler]
     module: Any
@@ -95,7 +95,7 @@ def finish(result: Result, outcome: Outcome) -> Result:
 
 
 def discover() -> list[Platform]:
-    """Площадки — это модули пакетов ``tp.platforms.<движок>``, по одной на модуль.
+    """Площадки — это модули пакетов ``tp.source.<движок>``, по одной на модуль.
 
     Модуль площадки объявляет ровно один краулер с непустым ``name``. Базовые
     классы движков живут вне этих пакетов, а импортированный в модуль чужой
@@ -108,13 +108,13 @@ def discover() -> list[Platform]:
     found: list[Platform] = []
     broken: list[str] = []
 
-    engines = [info.name for info in pkgutil.iter_modules(platforms.__path__) if info.ispkg]
+    engines = [info.name for info in pkgutil.iter_modules(source.__path__) if info.ispkg]
     for package in sorted(engines):
-        package_path = import_module(f"{platforms.__name__}.{package}").__path__
+        package_path = import_module(f"{source.__name__}.{package}").__path__
         for info in sorted(pkgutil.iter_modules(package_path), key=lambda i: i.name):
             if info.ispkg:
                 continue
-            module = import_module(f"{platforms.__name__}.{package}.{info.name}")
+            module = import_module(f"{source.__name__}.{package}.{info.name}")
             named = [
                 value
                 for value in vars(module).values()
@@ -133,7 +133,7 @@ def discover() -> list[Platform]:
         f"имя площадки {key!r} занято дважды" for key in sorted({k for k in keys if keys.count(k) > 1})
     ]
     if broken:
-        raise RuntimeError("Площадки в tp.platforms не соответствуют контракту:\n  " + "\n  ".join(broken))
+        raise RuntimeError("Площадки в tp.source не соответствуют контракту:\n  " + "\n  ".join(broken))
     return sorted(found, key=lambda p: p.key)
 
 
@@ -297,26 +297,6 @@ def main(argv: list[str] | None = None, engine: str | None = None) -> int:
     code = report(results)
     print(f"всего заняло {time.monotonic() - started:.1f}с")
     return code
-
-
-# Скрипты запуска по движкам — ``uv run start_kendo`` и т. п., см. pyproject.toml.
-# Те же флаги, что у run_all, но площадки только своего движка.
-
-
-def start_fogsoft(argv: list[str] | None = None) -> int:
-    return main(argv, engine="fogsoft")
-
-
-def start_kendo(argv: list[str] | None = None) -> int:
-    return main(argv, engine="kendo")
-
-
-def start_btorg(argv: list[str] | None = None) -> int:
-    return main(argv, engine="btorg")
-
-
-def start_ruson(argv: list[str] | None = None) -> int:
-    return main(argv, engine="ruson")
 
 
 if __name__ == "__main__":

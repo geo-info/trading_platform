@@ -12,8 +12,8 @@ from pathlib import Path
 
 from parsel import Selector
 
-from tp.marking.fogsoft import parse_detail, raw_detail
-from tp.marking.fogsoft_labels import canon_detail, canon_label
+from tp.source.fogsoft.marking.labels import canon_detail, canon_label
+from tp.source.fogsoft.marking.lot import parse_detail, raw_detail
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LOT = "Информация о лоте"

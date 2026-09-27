@@ -14,10 +14,10 @@ dependencies = [
 # Запуск обхода: все площадки или площадки одного движка.
 [project.scripts]
 run_all = "run_all:main"
-start_fogsoft = "run_all:start_fogsoft"
-start_kendo = "run_all:start_kendo"
-start_btorg = "run_all:start_btorg"
-start_ruson = "run_all:start_ruson"
+start_fogsoft = "tp.run_fogsoft:main"
+start_kendo = "tp.run_kendo:main"
+start_btorg = "tp.run_btorg:main"
+start_ruson = "tp.run_ruson:main"
 
 [dependency-groups]
 dev = [

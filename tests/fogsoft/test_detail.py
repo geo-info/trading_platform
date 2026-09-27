@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from parsel import Selector
 
-from tp.marking.fogsoft import parse_attachments, parse_detail, parse_price_schedule
+from tp.source.fogsoft.marking.lot import parse_attachments, parse_detail, parse_price_schedule
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LOT = "Информация о лоте"

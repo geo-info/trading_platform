@@ -14,8 +14,8 @@ import pytest
 from collector import CrawlerContext, Request, Response
 from parsel import Selector
 
-from tp.marking.kendo import find_next_page, parse_listing
-from tp.platforms.kendo.trade_alliance import TradeAlliance
+from tp.source.kendo.marking.listing import find_next_page, parse_listing
+from tp.source.kendo.trade_alliance import TradeAlliance
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LISTING = (FIXTURES / "listing_trade_alliance.html").read_text(encoding="utf-8")
