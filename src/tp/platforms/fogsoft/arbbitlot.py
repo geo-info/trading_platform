@@ -9,8 +9,8 @@ uv run python -m run_all arbbitlot
 
 from __future__ import annotations
 
-from tp.base import TenderFogsoft
 from tp.common import narrow
+from tp.fogsoft import TenderFogsoft
 
 
 class Arbbitlot(TenderFogsoft):

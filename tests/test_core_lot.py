@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from core.lot import Lot
 from core.parsing import MSK, is_active_status, normalize_status, parse_datetime, parse_price
-from tp.base import parse_attachments, parse_price_schedule
+from tp.marking.fogsoft import parse_attachments, parse_price_schedule
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

@@ -16,8 +16,9 @@ from typing import Any
 from collector import CrawlerContext, Request, Response
 from parsel import Selector
 
-from tp.base import find_next_target, page_is_older
-from tp.fogsoft_platform.centerr import Centerr
+from tp.common import older_than
+from tp.marking.fogsoft import find_next_target
+from tp.platforms.fogsoft.centerr import Centerr
 
 LISTING = (Path(__file__).parent / "fixtures" / "centerr_listing.html").read_text(encoding="utf-8")
 #: Тот же листинг, но без фильтра: в «Статусе» выбрано «Все».
@@ -94,15 +95,11 @@ async def test_без_токенов_страницы_цепочка_не_про
 # ── окно обхода по дате ──────────────────────────────────────────────────────
 
 
-def rows(*deadlines: str | None) -> list[dict]:
-    return [{"bids_end": d} for d in deadlines]
-
-
 def test_страница_старая_только_если_старая_вся() -> None:
     since = date(2026, 1, 1)
-    assert page_is_older(rows("31.12.2025 18:00", "01.06.2025 10:00"), since) is True
+    assert older_than(["31.12.2025 18:00", "01.06.2025 10:00"], since) is True
     # Одна свежая строка держит обход: порядок по номеру торгов, не по сроку.
-    assert page_is_older(rows("31.12.2025 18:00", "02.01.2026 10:00 (5 дн.)"), since) is False
+    assert older_than(["31.12.2025 18:00", "02.01.2026 10:00 (5 дн.)"], since) is False
     # Без дат решать не на чем — листаем дальше.
-    assert page_is_older(rows(None, None), since) is False
-    assert page_is_older([], since) is False
+    assert older_than([None, None], since) is False
+    assert older_than([], since) is False

@@ -9,9 +9,9 @@ from typing import Any
 from collector import CrawlerContext, Request, Response
 from parsel import Selector
 
-from tp.ruson import header, parse_listing
-from tp.ruson_platform.nistp import Nistp
-from tp.ruson_platform.sistematorg import Sistematorg
+from tp.marking.ruson import header, parse_listing
+from tp.platforms.ruson.nistp import Nistp
+from tp.platforms.ruson.sistematorg import Sistematorg
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NISTP = (FIXTURES / "ruson_listing_nistp.html").read_text(encoding="utf-8")

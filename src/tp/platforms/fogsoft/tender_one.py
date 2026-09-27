@@ -5,7 +5,7 @@ uv run python -m run_all tender_one
 
 from __future__ import annotations
 
-from tp.base import TenderFogsoft
+from tp.fogsoft import TenderFogsoft
 
 
 class TenderOne(TenderFogsoft):

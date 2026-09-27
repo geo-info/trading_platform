@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from parsel import Selector
 
-from core.known_labels import KNOWN_LABELS, unknown_labels
-from tp.base import FogsoftLot, build_item
+from tp.fogsoft import FogsoftLot, build_item
+from tp.marking.fogsoft_known_labels import KNOWN_LABELS, unknown_labels
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LOT = "Информация о лоте"

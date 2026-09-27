@@ -33,10 +33,10 @@ from typing import Any
 from collector import Crawl, Crawler, Outcome, Stats, crawl_many
 from pymongo import AsyncMongoClient
 
-import tp
 from core.db import MongoStore
 from core.db.mongo_store import new_run_id
 from core.settings import settings as config
+from tp import platforms
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ def finish(result: Result, outcome: Outcome) -> Result:
 
 
 def discover() -> list[Platform]:
-    """Площадки — это модули пакетов ``tp.<движок>_platform``, по одной на модуль.
+    """Площадки — это модули пакетов ``tp.platforms.<движок>``, по одной на модуль.
 
     Модуль площадки объявляет ровно один краулер с непустым ``name``. Базовые
     классы движков живут вне этих пакетов, а импортированный в модуль чужой
@@ -105,17 +105,13 @@ def discover() -> list[Platform]:
     found: list[Platform] = []
     broken: list[str] = []
 
-    packages = [
-        info.name
-        for info in pkgutil.iter_modules(tp.__path__)
-        if info.ispkg and info.name.endswith("_platform")
-    ]
-    for package in sorted(packages):
-        package_path = import_module(f"tp.{package}").__path__
+    engines = [info.name for info in pkgutil.iter_modules(platforms.__path__) if info.ispkg]
+    for package in sorted(engines):
+        package_path = import_module(f"{platforms.__name__}.{package}").__path__
         for info in sorted(pkgutil.iter_modules(package_path), key=lambda i: i.name):
             if info.ispkg:
                 continue
-            module = import_module(f"tp.{package}.{info.name}")
+            module = import_module(f"{platforms.__name__}.{package}.{info.name}")
             named = [
                 value
                 for value in vars(module).values()
@@ -134,7 +130,7 @@ def discover() -> list[Platform]:
         f"имя площадки {key!r} занято дважды" for key in sorted({k for k in keys if keys.count(k) > 1})
     ]
     if broken:
-        raise RuntimeError("Площадки в tp.*_platform не соответствуют контракту:\n  " + "\n  ".join(broken))
+        raise RuntimeError("Площадки в tp.platforms не соответствуют контракту:\n  " + "\n  ".join(broken))
     return sorted(found, key=lambda p: p.key)
 
 

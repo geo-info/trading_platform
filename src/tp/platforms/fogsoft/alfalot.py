@@ -8,8 +8,8 @@ uv run python -m run_all alfalot
 
 from __future__ import annotations
 
-from tp.base import TenderFogsoft
 from tp.common import narrow
+from tp.fogsoft import TenderFogsoft
 from tp.hooks.inprotect import solve_inprotect
 
 

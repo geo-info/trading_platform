@@ -11,15 +11,15 @@ from collector.crawler.params import resolve_params
 
 from core.settings import settings as config
 from run_all import Result, build_parser, discover, finish, report, run_params
-from tp.base import TenderFogsoft
 from tp.btorg import TenderBtorg
 from tp.common import CrawlParams
+from tp.fogsoft import TenderFogsoft
 from tp.kendo import TenderKendo
 from tp.ruson import TenderRuson
 
 #: Пакет площадок -> базовый класс движка и какие площадки в пакете ждём.
 EXPECTED = {
-    "fogsoft_platform": (
+    "fogsoft": (
         TenderFogsoft,
         {
             "alfalot",
@@ -40,12 +40,12 @@ EXPECTED = {
             "zakazrf",
         },
     ),
-    "kendo_platform": (TenderKendo, {"electro_torgi", "seltim", "torgi82", "trade_alliance", "vetp"}),
-    "btorg_platform": (
+    "kendo": (TenderKendo, {"electro_torgi", "seltim", "torgi82", "trade_alliance", "vetp"}),
+    "btorg": (
         TenderBtorg,
         {"atctrade", "aukcioncenter", "ausib", "etp_profit", "ptp_center", "regtorg"},
     ),
-    "ruson_platform": (TenderRuson, {"el_torg", "nistp", "promkonsalt", "rus_on", "sistematorg"}),
+    "ruson": (TenderRuson, {"el_torg", "nistp", "promkonsalt", "rus_on", "sistematorg"}),
 }
 
 
@@ -61,7 +61,7 @@ def test_у_каждой_площадки_свой_класс_и_стартов�
 
 def test_площадки_наследуют_базовый_класс_своего_движка() -> None:
     for platform in discover():
-        package = platform.module.__name__.split(".")[1]
+        package = platform.module.__name__.split(".")[2]
         engine, keys = EXPECTED[package]
         cls = platform.parser_cls
         assert platform.key in keys and issubclass(cls, engine) and cls is not engine, platform.key

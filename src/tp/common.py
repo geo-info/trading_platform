@@ -1,4 +1,4 @@
-"""Общее для площадок всех движков: настройки HTTP и параметры прогона.
+"""Общее для площадок всех движков: настройки HTTP, параметры прогона, айтем лота.
 
 Движки разные — iTender, Kendo, btorg, rus-on, — а договорённости с
 площадками одни: запросы по одному и с паузой, терпимость к сбоям, предел
@@ -9,11 +9,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
+from urllib.parse import urljoin
 
-from collector import Settings
+from collector import Response, Settings
+from pydantic import ValidationError
 
+from core.lot import Lot
 from core.parsing import parse_datetime
 from core.settings import settings as config
 
@@ -93,3 +96,47 @@ def rejected(
         "row": row,
         "validation": {"ok": False, "errors": [f"модель: {exc}"], "unknown_labels": []},
     }
+
+
+async def paging_stops(crawler: Any, num_page: int, deadlines: list[str | None] | None) -> bool:
+    """Пора ли прекращать листать листинг: предел страниц или окно по дате.
+
+    ``deadlines`` — сроки приёма заявок строк страницы; ``None`` — в листинге
+    движка срока нет, и окно на нём не действует. Причину остановки пишет в лог.
+    """
+    if num_page >= crawler.params.max_pages:
+        await crawler.log(f"остановка: предел max_pages={crawler.params.max_pages}")
+        return True
+    since = crawler.params.since
+    if since is not None and deadlines is not None and older_than(deadlines, since):
+        await crawler.log(f"остановка: вся страница {num_page} закрыла приём заявок до {since}")
+        return True
+    return False
+
+
+def check_status(response: Response) -> None:
+    """Не-200 — ошибка запроса, а не пустая страница.
+
+    Страница ошибки разбирается в ноль торгов, и площадка, чей листинг
+    переехал, выглядела бы в итоговой таблице обходом без лотов. Исключение
+    фреймворк засчитывает в ошибки, и площадка видна в колонке «ош».
+    Повторяемые статусы (429, 5xx) фреймворк сначала повторяет сам.
+    """
+    if response.status != 200:
+        raise ValueError(f"{response.status} для {response.request.url}")
+
+
+def lot_item(source: str, page_url: str, lot: dict[str, Any]) -> dict[str, Any]:
+    """Айтем лота через модель ``core.lot.Lot``; не пропущенный моделью — запасным документом.
+
+    У лота своя страница есть не на всех движках — тогда адрес лота это адрес
+    страницы, с которой он разобран.
+    """
+    fetched_at = datetime.now(UTC).isoformat()
+    url = urljoin(page_url, lot["lot_url"]) if lot.get("lot_url") else page_url
+    try:
+        return Lot.model_validate(
+            {**lot, "source": source, "url": url, "fetched_at": fetched_at}
+        ).model_dump()
+    except ValidationError as exc:
+        return rejected(source, str(lot["lot_id"]), url, fetched_at, lot, exc)

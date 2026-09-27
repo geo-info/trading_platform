@@ -3,18 +3,18 @@
 Сервер не досылает промежуточный сертификат своей цепочки, и curl, в отличие
 от браузера, сам его не подтянет — подставляем свой поверх бандла certifi.
 Путь к PEM фреймворк разрешает относительно файла парсера — отсюда ``..``:
-сам сертификат лежит на уровень выше, в tp/certs/.
+сам сертификат лежит на два уровня выше, в tp/certs/.
 
 uv run python -m run_all meta_invest
 """
 
 from __future__ import annotations
 
-from tp.base import TenderFogsoft
 from tp.common import narrow
+from tp.fogsoft import TenderFogsoft
 
 
 class MetaInvest(TenderFogsoft):
     name = "meta_invest"
     DOMAIN = "https://meta-invest.ru"
-    settings = narrow(extra_ca_cert="../certs/meta_invest.pem")
+    settings = narrow(extra_ca_cert="../../certs/meta_invest.pem")
