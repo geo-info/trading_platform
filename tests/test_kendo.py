@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
 from collector import CrawlerContext, Request, Response
 from parsel import Selector
 
@@ -92,3 +93,9 @@ async def test_лот_который_модель_не_пропустила_со
     assert (lot["source"], lot["lot_id"]) == ("trade_alliance", "None_1")
     assert lot["row"]["price_raw"] == "135 000.00"
     assert lot["validation"]["ok"] is False and "trade_id" in lot["validation"]["errors"][0]
+
+
+async def test_страница_ошибки_это_ошибка_а_не_пустой_листинг() -> None:
+    page = Response(SimpleNamespace(status_code=404, text="<html></html>"), Request(url=URL), crawler())
+    with pytest.raises(ValueError, match="404"):
+        [out async for out in crawler().parse(page)]

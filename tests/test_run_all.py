@@ -12,6 +12,7 @@ from collector.crawler.params import resolve_params
 from core.settings import settings as config
 from run_all import Result, build_parser, discover, finish, report, run_params
 from tp.base import TenderFogsoft
+from tp.btorg import TenderBtorg
 from tp.common import CrawlParams
 from tp.kendo import TenderKendo
 
@@ -39,6 +40,10 @@ EXPECTED = {
         },
     ),
     "kendo_platform": (TenderKendo, {"electro_torgi", "seltim", "torgi82", "trade_alliance", "vetp"}),
+    "btorg_platform": (
+        TenderBtorg,
+        {"atctrade", "aukcioncenter", "ausib", "etp_profit", "ptp_center", "regtorg"},
+    ),
 }
 
 

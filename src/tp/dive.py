@@ -72,6 +72,7 @@ class DiveCrawler(Crawler):
 
     async def parse(self, response: Response) -> Any:
         """Листинг: зайти в каждые торги и шагнуть на следующую страницу."""
+        check_status(response)
         page = response.selector()
         num_page = response.metadata.get("page", 1)
         trades = self.list_trades(page)
@@ -106,6 +107,7 @@ class DiveCrawler(Crawler):
 
     async def parse_trade(self, response: Response) -> Any:
         """Страница торгов: по айтему на лот."""
+        check_status(response)
         trade = response.metadata["trade"]
         lots = self.extract_lots(response.selector(), trade)
         await self.log(f"{response.status} | торги {trade.get('trade_id')} | лотов {len(lots)}")
@@ -113,6 +115,18 @@ class DiveCrawler(Crawler):
             # Без номера лота документ нечем ключевать в хранилище.
             if lot.get("lot_id"):
                 yield dive_item(self.name, response.request.url, lot)
+
+
+def check_status(response: Response) -> None:
+    """Не-200 — ошибка запроса, а не пустая страница.
+
+    Страница ошибки разбирается в ноль торгов, и площадка, чей листинг
+    переехал, выглядела бы в итоговой таблице обходом без лотов. Исключение
+    фреймворк засчитывает в ошибки, и площадка видна в колонке «ош».
+    Повторяемые статусы (429, 5xx) фреймворк сначала повторяет сам.
+    """
+    if response.status != 200:
+        raise ValueError(f"{response.status} для {response.request.url}")
 
 
 def dive_item(source: str, page_url: str, lot: dict[str, Any]) -> dict[str, Any]:
