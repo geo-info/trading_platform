@@ -15,6 +15,7 @@ from tp.base import TenderFogsoft
 from tp.btorg import TenderBtorg
 from tp.common import CrawlParams
 from tp.kendo import TenderKendo
+from tp.ruson import TenderRuson
 
 #: Пакет площадок -> базовый класс движка и какие площадки в пакете ждём.
 EXPECTED = {
@@ -44,6 +45,7 @@ EXPECTED = {
         TenderBtorg,
         {"atctrade", "aukcioncenter", "ausib", "etp_profit", "ptp_center", "regtorg"},
     ),
+    "ruson_platform": (TenderRuson, {"el_torg", "nistp", "promkonsalt", "rus_on", "sistematorg"}),
 }
 
 
