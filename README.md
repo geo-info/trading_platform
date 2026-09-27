@@ -1,8 +1,15 @@
 # trading_platform
 
-Парсеры площадок банкротных торгов на движке iTender (fogsoft) поверх
+Парсеры площадок банкротных торгов поверх
 [collector-framework](https://github.com/barabacker/collector-framework).
-Шестнадцать площадок, по файлу парсера на площадку, результат — в MongoDB.
+32 площадки на четырёх движках, по файлу на площадку, результат — в MongoDB:
+
+| движок | площадок | пакет |
+|---|---|---|
+| iTender (fogsoft) | 16 | `tp.fogsoft_platform` |
+| Kendo-ETP | 5 | `tp.kendo_platform` |
+| btorg (edoc-ETP) | 6 | `tp.btorg_platform` |
+| rus-on | 5 | `tp.ruson_platform` |
 
 ## База
 
@@ -20,8 +27,9 @@ docker compose down -v        # остановить и стереть собр�
 Документ — модель `core.lot.Lot` (перенесена из coll-temp): поля листинга,
 цена и сроки разобраны (`price`, `bidding_deadline`, `result_date` — по Москве,
 сырые строки рядом), статус сведён к одному написанию (`status_raw` — как на
-площадке), `is_active` — из статуса. Страница лота — в `extra` как есть,
-документы — в `attachments`, график снижения цены — в `price_schedule`.
+площадке), `is_active` — из статуса. Страница лота — в `extra` как есть:
+у iTender это разделы с подписями, у остальных движков — плоский словарь.
+Документы — в `attachments`, график снижения цены — в `price_schedule`.
 Хранилище добавляет `first_seen_at`, `last_seen_at` и `run_id` запуска: лот,
 чей `run_id` отстал от последнего, последним обходом не увиден.
 
@@ -75,19 +83,26 @@ uv run python -m run_all --list              # что вообще есть
 run_all.py                обход площадок: запуск, прогресс, итоговая таблица
 core/settings.py          настройки из окружения и .env
 core/db/                  Store — интерфейс, MongoStore — реализация
-tp/base.py                TenderFogsoft: разбор, пагинация, обход
-tp/fogsoft_platform/*.py  по файлу на площадку: имя, домен, особенность
+tp/common.py              общее для всех движков: настройки HTTP, параметры прогона
+tp/base.py                iTender (fogsoft): разбор, пагинация через форму, обход
+tp/dive.py                Kendo, btorg, rus-on: листинг торгов -> заход в торги -> лоты
+tp/{kendo,btorg,ruson}.py разбор этих трёх движков
+tp/*_platform/*.py        по файлу на площадку: имя, домен, особенность
 tp/hooks/                 сквозные обязанности (проверка inprotect)
 tp/certs/                 недостающие звенья TLS-цепочек
 ```
 
-Площадка — это несколько строк:
+Площадка — это несколько строк в пакете своего движка:
 
 ```python
 class Centerr(TenderFogsoft):
     name = "centerr"
     DOMAIN = "https://bankrupt.centerr.ru"
 ```
+
+Окно `--since` работает по сроку приёма заявок из листинга. На btorg его нет —
+только начало приёма, — и там окно не действует: остановка по началу теряла
+бы торги, начатые раньше окна и ещё идущие.
 
 ## Разработка
 
