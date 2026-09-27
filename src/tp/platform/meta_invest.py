@@ -5,7 +5,7 @@
 Путь к PEM фреймворк разрешает относительно файла парсера — отсюда ``..``:
 сам сертификат лежит на уровень выше, в tp/certs/.
 
-uv run python -m tp.platform.run_all meta_invest
+uv run python -m run_all meta_invest
 """
 
 from __future__ import annotations

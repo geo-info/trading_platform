@@ -4,7 +4,7 @@
 поэтому проверка TLS отключена. Это снимает и защиту от подмены трафика —
 цена за доступ к сайту, который иначе не открыть вовсе.
 
-uv run python -m tp.platform.run_all arbbitlot
+uv run python -m run_all arbbitlot
 """
 
 from __future__ import annotations

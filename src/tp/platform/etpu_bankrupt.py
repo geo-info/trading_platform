@@ -1,6 +1,6 @@
 """Уральская электронная торговая площадка — банкротные торги, движок iTender.
 
-uv run python -m tp.platform.run_all etpu_bankrupt
+uv run python -m run_all etpu_bankrupt
 """
 
 from __future__ import annotations

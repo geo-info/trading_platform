@@ -1,6 +1,6 @@
 """Tender Technologies — банкротные торги, движок iTender.
 
-uv run python -m tp.platform.run_all tender_one
+uv run python -m run_all tender_one
 """
 
 from __future__ import annotations

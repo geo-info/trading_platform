@@ -40,13 +40,13 @@ docker compose exec mongo mongosh trading --eval 'db.lots.countDocuments({source
 ## Обход
 
 ```bash
-uv sync                                                # зависимости
-uv run python -m tp.platform.run_all                   # все площадки разом
-uv run python -m tp.platform.run_all centerr etb       # только названные
-uv run python -m tp.platform.run_all --max-pages 2     # короткий прогон
-uv run python -m tp.platform.run_all --since 2026-06-01 # окно по дате
-uv run python -m tp.platform.run_all --max-errors 200  # терпимость к сбоям на прогон
-uv run python -m tp.platform.run_all --list            # что вообще есть
+uv sync                                      # зависимости
+uv run python -m run_all                     # все площадки разом
+uv run python -m run_all centerr etb         # только названные
+uv run python -m run_all --max-pages 2       # короткий прогон
+uv run python -m run_all --since 2026-06-01  # окно по дате
+uv run python -m run_all --max-errors 200    # терпимость к сбоям на прогон
+uv run python -m run_all --list              # что вообще есть
 ```
 
 ## Настройки
@@ -72,6 +72,7 @@ uv run python -m tp.platform.run_all --list            # что вообще е�
 ## Устройство
 
 ```
+run_all.py            обход площадок: запуск, прогресс, итоговая таблица
 core/settings.py      настройки из окружения и .env
 core/db/              Store — интерфейс, MongoStore — реализация
 tp/base.py            TenderFogsoft: разбор, пагинация, обход

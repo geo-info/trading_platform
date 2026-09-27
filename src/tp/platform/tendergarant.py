@@ -1,6 +1,6 @@
 """ТЕНДЕР ГАРАНТ — банкротные торги, движок iTender.
 
-uv run python -m tp.platform.run_all tendergarant
+uv run python -m run_all tendergarant
 """
 
 from __future__ import annotations

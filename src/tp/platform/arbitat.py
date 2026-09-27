@@ -1,6 +1,6 @@
 """Арбитат — банкротные торги, движок iTender.
 
-uv run python -m tp.platform.run_all arbitat
+uv run python -m run_all arbitat
 """
 
 from __future__ import annotations

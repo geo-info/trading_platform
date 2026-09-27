@@ -1,6 +1,6 @@
 """ЭТП Югра — банкротные торги, движок iTender.
 
-uv run python -m tp.platform.run_all etpugra
+uv run python -m run_all etpugra
 """
 
 from __future__ import annotations

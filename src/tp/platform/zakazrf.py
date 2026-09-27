@@ -1,6 +1,6 @@
 """ЭТП Заказ РФ — банкротные торги, движок iTender.
 
-uv run python -m tp.platform.run_all zakazrf
+uv run python -m run_all zakazrf
 """
 
 from __future__ import annotations

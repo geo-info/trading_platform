@@ -1,10 +1,10 @@
 """Обход всех площадок разом.
 
-    uv run python -m tp.platform.run_all                  все площадки
-    uv run python -m tp.platform.run_all centerr etb      только названные
-    uv run python -m tp.platform.run_all --max-pages 2    короткий прогон
-    uv run python -m tp.platform.run_all --since 2026-01-01  окно по дате
-    uv run python -m tp.platform.run_all --list           что вообще есть
+    uv run python -m run_all                  все площадки
+    uv run python -m run_all centerr etb      только названные
+    uv run python -m run_all --max-pages 2    короткий прогон
+    uv run python -m run_all --since 2026-01-01  окно по дате
+    uv run python -m run_all --list           что вообще есть
 
 Площадки обходятся **параллельно**, и это тот случай, когда параллелизм
 оправдан: серверы разные, друг другу они не мешают. Внутри одной площадки
@@ -40,9 +40,6 @@ from tp import platform as platform_pkg
 from tp.base import TenderFogsoft
 
 logger = logging.getLogger(__name__)
-
-#: Модуль пакета ``tp.platform``, который площадкой не является.
-INFRASTRUCTURE = {"run_all"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +93,7 @@ def finish(result: Result, outcome: Outcome) -> Result:
 
 
 def discover() -> list[Platform]:
-    """Площадки — это модули ``tp.platform``, кроме инфраструктурных.
+    """Площадки — это модули пакета ``tp.platform``, по одной на модуль.
 
     Модуль, который не дотягивает до контракта, не пропускается молча, а
     роняет запуск со списком нарушений: «почему мой парсер не виден» — худший
@@ -107,7 +104,7 @@ def discover() -> list[Platform]:
 
     for info in sorted(pkgutil.iter_modules(platform_pkg.__path__), key=lambda i: i.name):
         # Подпакеты — не площадки по определению.
-        if info.ispkg or info.name in INFRASTRUCTURE:
+        if info.ispkg:
             continue
 
         module = import_module(f"{platform_pkg.__name__}.{info.name}")

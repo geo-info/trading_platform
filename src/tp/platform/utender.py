@@ -4,7 +4,7 @@
 не двигается — перекачивает page 1». На обычных postback-ах, без ajax-дельты,
 она идёт нормально — проверено переходом со страницы 1 на 2.
 
-uv run python -m tp.platform.run_all utender
+uv run python -m run_all utender
 """
 
 from __future__ import annotations

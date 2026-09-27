@@ -3,7 +3,7 @@
 Пейджера на листинге нет — площадка укладывается в одну страницу.
 ``find_next_target`` вернёт ``None``, и обход честно закончится на первой.
 
-uv run python -m tp.platform.run_all etb
+uv run python -m run_all etb
 """
 
 from __future__ import annotations

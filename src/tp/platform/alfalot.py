@@ -3,7 +3,7 @@
 На входе стоит JS-проверка отпечатка inprotect, и без неё листинг
 не приходит вообще. Она целиком живёт в хуке ``tp.hooks.inprotect``.
 
-uv run python -m tp.platform.run_all alfalot
+uv run python -m run_all alfalot
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """Центр Реализации — банкротные торги, движок iTender.
 
-uv run python -m tp.platform.run_all centerr
+uv run python -m run_all centerr
 """
 
 from __future__ import annotations

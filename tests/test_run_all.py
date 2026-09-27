@@ -10,8 +10,8 @@ from collector import Outcome, Stats
 from collector.crawler.params import resolve_params
 
 from core.settings import settings as config
+from run_all import Result, build_parser, discover, finish, report, run_params
 from tp.base import FogsoftParams, TenderFogsoft
-from tp.platform.run_all import Result, build_parser, discover, finish, report, run_params
 
 EXPECTED = {
     "alfalot",
