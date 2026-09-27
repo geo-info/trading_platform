@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import tomllib
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from collector import Outcome, Stats
 from collector.crawler.params import resolve_params
 
+import run_all
 from core.settings import settings as config
 from run_all import Result, build_parser, discover, finish, report, run_params
 from tp.btorg import TenderBtorg
@@ -132,3 +135,27 @@ def test_дошедшая_до_конца_площадка_готова() -> Non
     assert (result.mark, result.ok, result.elapsed) == ("ГОТОВО", True, 12.5)
     assert report([result]) == 0
     assert report([result, finish(Result(key="etb"), outcome(Stats(reason="cancelled")))]) == 1
+
+
+# ── запуск по движкам ────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("engine", ["fogsoft", "kendo", "btorg", "ruson"])
+def test_скрипт_движка_видит_только_его_площадки(engine: str, capsys: pytest.CaptureFixture[str]) -> None:
+    start = getattr(run_all, f"start_{engine}")
+    assert start(["--list"]) == 0
+    listed = {line.split()[0] for line in capsys.readouterr().out.splitlines() if line.strip()}
+    assert listed == EXPECTED[engine][1]
+
+
+def test_площадка_чужого_движка_не_запускается(capsys: pytest.CaptureFixture[str]) -> None:
+    assert run_all.start_kendo(["centerr"]) == 2
+    assert "centerr" in capsys.readouterr().err
+
+
+def test_скрипты_движков_объявлены_в_pyproject() -> None:
+    scripts = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = scripts["project"]["scripts"]
+    assert declared["run_all"] == "run_all:main"
+    for engine in EXPECTED:
+        assert declared[f"start_{engine}"] == f"run_all:start_{engine}"

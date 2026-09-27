@@ -11,6 +11,14 @@ dependencies = [
     "tzdata>=2025.2",
 ]
 
+# Запуск обхода: все площадки или площадки одного движка.
+[project.scripts]
+run_all = "run_all:main"
+start_fogsoft = "run_all:start_fogsoft"
+start_kendo = "run_all:start_kendo"
+start_btorg = "run_all:start_btorg"
+start_ruson = "run_all:start_ruson"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
@@ -29,6 +37,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/core", "src/tp"]
+
+# run_all — модуль, а не пакет, и в packages не попадает; без него скрипты
+# запуска в собранном пакете не нашли бы, что вызывать.
+[tool.hatch.build.targets.wheel.force-include]
+"src/run_all.py" = "run_all.py"
 
 [tool.ruff]
 line-length = 110

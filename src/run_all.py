@@ -5,6 +5,7 @@
     uv run python -m run_all --max-pages 2    короткий прогон
     uv run python -m run_all --since 2026-01-01  окно по дате
     uv run python -m run_all --list           что вообще есть
+    uv run start_kendo --max-pages 2          только площадки одного движка
 
 Площадки обходятся **параллельно**, и это тот случай, когда параллелизм
 оправдан: серверы разные, друг другу они не мешают. Внутри одной площадки
@@ -44,6 +45,8 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True, slots=True)
 class Platform:
     key: str
+    #: Движок — имя пакета площадки в ``tp.platforms``.
+    engine: str
     parser_cls: type[Crawler]
     module: Any
 
@@ -123,7 +126,7 @@ def discover() -> list[Platform]:
             if len(named) != 1:
                 broken.append(f"{package}.{info.name}: краулеров с именем — {len(named)}, нужен ровно один")
                 continue
-            found.append(Platform(key=named[0].name, parser_cls=named[0], module=module))
+            found.append(Platform(key=named[0].name, engine=package, parser_cls=named[0], module=module))
 
     keys = [p.key for p in found]
     broken += [
@@ -264,7 +267,8 @@ def run_params(args: argparse.Namespace) -> dict[str, Any]:
     return {name: value for name, value in given.items() if value is not None}
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, engine: str | None = None) -> int:
+    """Обход площадок из командной строки; ``engine`` — только площадки этого движка."""
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     args = build_parser().parse_args(argv)
@@ -274,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     # превращаются в кашу, поэтому они отдельно, под -v.
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(message)s")
 
-    platforms = discover()
+    platforms = [p for p in discover() if engine is None or p.engine == engine]
     if args.list:
         for p in platforms:
             print(f"  {p.key:15} {p.parser_cls.start_urls[0]}")
@@ -293,6 +297,26 @@ def main(argv: list[str] | None = None) -> int:
     code = report(results)
     print(f"всего заняло {time.monotonic() - started:.1f}с")
     return code
+
+
+# Скрипты запуска по движкам — ``uv run start_kendo`` и т. п., см. pyproject.toml.
+# Те же флаги, что у run_all, но площадки только своего движка.
+
+
+def start_fogsoft(argv: list[str] | None = None) -> int:
+    return main(argv, engine="fogsoft")
+
+
+def start_kendo(argv: list[str] | None = None) -> int:
+    return main(argv, engine="kendo")
+
+
+def start_btorg(argv: list[str] | None = None) -> int:
+    return main(argv, engine="btorg")
+
+
+def start_ruson(argv: list[str] | None = None) -> int:
+    return main(argv, engine="ruson")
 
 
 if __name__ == "__main__":

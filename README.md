@@ -4,12 +4,12 @@
 [collector-framework](https://github.com/barabacker/collector-framework).
 32 площадки на четырёх движках, по файлу на площадку, результат — в MongoDB:
 
-| движок | площадок | пакет |
-|---|---|---|
-| iTender (fogsoft) | 16 | `tp.fogsoft_platform` |
-| Kendo-ETP | 5 | `tp.kendo_platform` |
-| btorg (edoc-ETP) | 6 | `tp.btorg_platform` |
-| rus-on | 5 | `tp.ruson_platform` |
+| движок | площадок | площадки | запуск |
+|---|---|---|---|
+| iTender (fogsoft) | 16 | `tp/platforms/fogsoft` | `uv run start_fogsoft` |
+| Kendo-ETP | 5 | `tp/platforms/kendo` | `uv run start_kendo` |
+| btorg (edoc-ETP) | 6 | `tp/platforms/btorg` | `uv run start_btorg` |
+| rus-on | 5 | `tp/platforms/ruson` | `uv run start_ruson` |
 
 ## База
 
@@ -55,7 +55,11 @@ uv run python -m run_all --max-pages 2       # короткий прогон
 uv run python -m run_all --since 2026-06-01  # окно по дате
 uv run python -m run_all --max-errors 200    # терпимость к сбоям на прогон
 uv run python -m run_all --list              # что вообще есть
+uv run start_kendo --max-pages 2             # только площадки одного движка
 ```
+
+`start_fogsoft`, `start_kendo`, `start_btorg`, `start_ruson` — тот же
+`run_all` с теми же флагами, но с площадками только своего движка.
 
 ## Настройки
 
@@ -80,19 +84,32 @@ uv run python -m run_all --list              # что вообще есть
 ## Устройство
 
 ```
-run_all.py                обход площадок: запуск, прогресс, итоговая таблица
-core/settings.py          настройки из окружения и .env
-core/db/                  Store — интерфейс, MongoStore — реализация
-tp/common.py              общее для всех движков: настройки HTTP, параметры прогона
-tp/base.py                iTender (fogsoft): разбор, пагинация через форму, обход
-tp/dive.py                Kendo, btorg, rus-on: листинг торгов -> заход в торги -> лоты
-tp/{kendo,btorg,ruson}.py разбор этих трёх движков
-tp/*_platform/*.py        по файлу на площадку: имя, домен, особенность
-tp/hooks/                 сквозные обязанности (проверка inprotect)
-tp/certs/                 недостающие звенья TLS-цепочек
+src/
+  run_all.py              запуск: все площадки или один движок (start_<движок>)
+  core/                   общее без привязки к движку
+    settings.py           настройки из окружения и .env
+    parsing.py            разбор значений: цена, дата, статус
+    lot.py                модель лота и итог его проверки
+    db/                   Store — интерфейс, MongoStore — реализация
+  tp/
+    common.py             общее для движков: настройки HTTP, параметры прогона, айтем лота
+    fogsoft.py            обход движка: краулер, запросы, пагинация, айтемы
+    kendo.py              ...
+    btorg.py
+    ruson.py
+    marking/              разметка: всё, что читает страницы (xpath, селекторы)
+      fogsoft.py          ... по модулю на движок
+      fogsoft_labels.py   сведение подписей страницы iTender к одному написанию
+      fogsoft_known_labels.py  реестр известных подписей iTender
+    platforms/<движок>/   площадки: по модулю на площадку — имя, домен, особенность
+    hooks/                сквозные обязанности (проверка inprotect)
+    certs/                недостающие звенья TLS-цепочек
+tests/
+  core/ fogsoft/ kendo/ btorg/ ruson/   тесты по тем же разделам,
+                                        фикстуры — в <движок>/fixtures
 ```
 
-Площадка — это несколько строк в пакете своего движка:
+Площадка — это несколько строк в `tp/platforms/<движок>/`:
 
 ```python
 class Centerr(TenderFogsoft):
