@@ -11,13 +11,13 @@ dependencies = [
     "tzdata>=2025.2",
 ]
 
-# Запуск обхода: все площадки или площадки одного движка.
-[project.scripts]
-run_all = "run_all:main"
-start_fogsoft = "tp.run_fogsoft:main"
-start_kendo = "tp.run_kendo:main"
-start_btorg = "tp.run_btorg:main"
-start_ruson = "tp.run_ruson:main"
+## Запуск обхода: все площадки или площадки одного движка.
+#[project.scripts]
+#run_all = "run_all:main"
+#start_fogsoft = "tp.run_fogsoft:main"
+#start_kendo = "tp.run_kendo:main"
+#start_btorg = "tp.run_btorg:main"
+#start_ruson = "tp.run_ruson:main"
 
 [dependency-groups]
 dev = [
@@ -39,9 +39,10 @@ build-backend = "hatchling.build"
 packages = ["src/core", "src/tp"]
 
 # run_all — модуль, а не пакет, и в packages не попадает; без него скрипты
-# запуска в собранном пакете не нашли бы, что вызывать.
-[tool.hatch.build.targets.wheel.force-include]
-"src/run_all.py" = "run_all.py"
+# запуска в собранном пакете не нашли бы, что вызывать. Вернуть вместе с
+# src/run_all.py и [project.scripts]: без файла сборка падает.
+#[tool.hatch.build.targets.wheel.force-include]
+#"src/run_all.py" = "run_all.py"
 
 [tool.ruff]
 line-length = 110

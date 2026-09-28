@@ -5,6 +5,6 @@
 """
 
 from core.db.base import KEY_FIELDS, Store, key_of
-from core.db.mongo_store import MongoStore
+from core.db.mongo import MongoStorage
 
-__all__ = ["KEY_FIELDS", "MongoStore", "Store", "key_of"]
+__all__ = ["KEY_FIELDS", "MongoStorage", "Store", "key_of"]

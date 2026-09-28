@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from parsel import Selector
 
-from tp.fogsoft import FogsoftLot, build_item
+from tp.delete.fogsoft import FogsoftLot, build_item
 from tp.source.fogsoft.marking.known_labels import KNOWN_LABELS, unknown_labels
 
 FIXTURES = Path(__file__).parent / "fixtures"

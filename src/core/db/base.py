@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
+from datetime import datetime
 from typing import Any
 
 #: Поля, по которым документ считается тем же самым. Номер лота уникален
@@ -24,6 +25,11 @@ KEY_FIELDS = ("source", "lot_id")
 class Store(ABC):
     """Куда складываются разобранные лоты."""
 
+    @property
+    def target(self) -> str:
+        """Куда пишем — строкой для человека, в лог прогона."""
+        return type(self).__name__
+
     @abstractmethod
     async def upsert(self, item: Mapping[str, Any]) -> bool:
         """Записать лот, обновив прежнюю версию.
@@ -32,6 +38,17 @@ class Store(ABC):
         Различать вставку и обновление нужно для счётчиков запуска: сколько
         лотов появилось впервые, а сколько переписано.
         """
+
+    @abstractmethod
+    def pending_detail(
+        self, limit: int = 0, statuses: list[str] | None = None
+    ) -> AsyncIterator[dict[str, Any]]:
+        """``lot_id`` и ``lot_url`` лотов, которым нужна страница деталей;
+        ``statuses`` — только с этими статусами."""
+
+    @abstractmethod
+    async def save_detail(self, lot_id: str, detail: Mapping[str, Any], at: datetime) -> None:
+        """Дописать детали к лоту; ``at`` — когда страница была запрошена."""
 
     @abstractmethod
     async def count(self) -> int:

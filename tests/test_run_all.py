@@ -12,13 +12,13 @@ import pytest
 from collector import Outcome, Stats
 from collector.crawler.params import resolve_params
 
-from core.settings import settings as config
+from core.conf import settings as config
 from run_all import Result, build_parser, discover, finish, report, run_params
-from tp.btorg import TenderBtorg
+from tp.delete.btorg import TenderBtorg
 from tp.common import CrawlParams
-from tp.fogsoft import TenderFogsoft
-from tp.kendo import TenderKendo
-from tp.ruson import TenderRuson
+from tp.delete.fogsoft import TenderFogsoft
+from tp.delete.kendo import TenderKendo
+from tp.delete.ruson import TenderRuson
 
 #: Пакет площадок -> базовый класс движка и какие площадки в пакете ждём.
 EXPECTED = {
@@ -84,7 +84,7 @@ def test_площадка_переживает_отдельные_сбои_но_
 def test_параметры_площадки_объявлены_с_умолчаниями_из_настроек() -> None:
     declared = TenderFogsoft.params
     assert isinstance(declared, CrawlParams)
-    assert (declared.max_pages, declared.since) == (config.max_pages, config.since)
+    assert (declared.max_pages, declared.since) == (config.parsing.max_pages, config.parsing.since)
     # Предел и окно больше не атрибуты класса, которые run_all переписывал.
     assert not hasattr(TenderFogsoft, "MAX_PAGES") and not hasattr(TenderFogsoft, "SINCE")
 

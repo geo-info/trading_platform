@@ -5,6 +5,10 @@ from __future__ import annotations
 import pytest
 
 from core.db import MongoStore
+from core.db.mongo import client as client_module
+from core.db.mongo import create_client
+from core.db.mongo import storage as storage_module
+from core.conf import conf
 from tests.core.fake_mongo import FakeClient
 
 LOT = {"source": "bep", "lot_id": "1", "price": "100,00"}
@@ -81,16 +85,36 @@ async def test_первое_и_последнее_появление_лота() 
     async with MongoStore("bep", client=client, run_id="r1") as s:
         await s.upsert(LOT)
     (doc,) = client["trading"]["lots"].docs.values()
-    first = doc["first_seen_at"]
-    assert doc["last_seen_at"] == first and doc["run_id"] == "r1"
+    first = doc["created_at"]
+    assert doc["updated_at"] == first and doc["run_id"] == "r1"
 
     async with MongoStore("bep", client=client, run_id="r2") as s:
         await s.upsert(LOT)
     (doc,) = client["trading"]["lots"].docs.values()
-    assert doc["first_seen_at"] == first  # вставка не повторяется
-    assert doc["last_seen_at"] >= first and doc["run_id"] == "r2"
+    assert doc["created_at"] == first  # вставка не повторяется
+    assert doc["updated_at"] >= first and doc["run_id"] == "r2"
 
 
 def test_run_id_по_умолчанию_свой_у_каждого_хранилища() -> None:
     client = FakeClient()
     assert store(client).run_id != store(client).run_id
+
+
+# ── подключение ──────────────────────────────────────────────────────────────
+
+
+def test_клиент_по_умолчанию_из_настроек(monkeypatch: pytest.MonkeyPatch) -> None:
+    uris: list[str] = []
+    monkeypatch.setattr(client_module, "AsyncMongoClient", lambda uri: uris.append(uri) or FakeClient())
+    create_client()
+    create_client("mongodb://elsewhere:27017")
+    assert uris == [conf.mongo.uri, "mongodb://elsewhere:27017"]
+
+
+async def test_без_чужого_клиента_хранилище_создаёт_и_закрывает_своё(monkeypatch: pytest.MonkeyPatch) -> None:
+    own = FakeClient()
+    monkeypatch.setattr(storage_module, "create_client", lambda uri: own)
+    async with MongoStore("bep") as s:
+        await s.upsert(LOT)
+    assert own.closed is True
+    assert len(own["trading"]["lots"].docs) == 1
