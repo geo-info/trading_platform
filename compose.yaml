@@ -11,7 +11,7 @@
 
 services:
   mongo:
-    image: mongo:8.0
+    image: mongo:latest
     container_name: trading-mongo
     restart: unless-stopped
     # Порт открыт только на петлевом интерфейсе. Без этого Docker пробивает
