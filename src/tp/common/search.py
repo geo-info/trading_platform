@@ -1,46 +1,29 @@
-"""Общее для движков Kendo, btorg и rus-on: поиск по статусу и детали со страницы торгов.
+"""Поиск по статусу GET-формой листинга — общее для Kendo, btorg и rus-on.
 
-У этих движков одна и та же схема, и держать её копией в каждом значит
-разойтись при первой же правке.
+Фильтр статуса у этих движков — поле обычной GET-формы листинга:
+выпадающий список (Kendo ``status_id``, btorg ``processStatus``, rus-on
+``trade_state``) или чекбоксы (nistp ``trade_state[]``). Коды статусов у
+площадок одного движка бывают разными — у Kendo «Объявлен» где 3, где 2, —
+поэтому статус задаётся *названием*, а значение для запроса берётся из формы
+самой площадки. Обход: поиск со статусом -> перелистывание -> поиск со
+следующим статусом.
 
-Листинг. Фильтр статуса — поле обычной GET-формы листинга: выпадающий список
-(Kendo ``status_id``, btorg ``processStatus``, rus-on ``trade_state``) или
-чекбоксы (nistp ``trade_state[]``). Коды статусов у площадок одного движка
-бывают разными — у Kendo «Объявлен» где 3, где 2, — поэтому статус задаётся
-*названием*, а значение для запроса берётся из формы самой площадки. Обход:
-поиск со статусом -> перелистывание -> поиск со следующим статусом. Листинг
-перечисляет торги, а лоты — только на странице торгов, поэтому с каждой строки
-заход в торги (``StatusSearch.trade_request``).
-
-Детали. Своей страницы у лота нет (btorg, rus-on) или она не нужна (Kendo):
-всё о лоте — на странице торгов. Лоты одних торгов делят её адрес, а
-фреймворк отбрасывает повторный запрос, поэтому ``TradeDetail`` ходит на
-страницу торгов один раз и отдаёт детали всех её лотов, ждущих деталей.
+Листинг перечисляет торги, а лоты — только на странице торгов, поэтому с
+каждой строки заход в торги (``StatusSearch.trade_request``).
 """
 
 from __future__ import annotations
 
-from collections import defaultdict
-from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
-from collector import Crawler, Request, Response
+from collector import Request, Response
 from collector.crawler.form import form_request as form_fields
 from parsel import Selector
 
 from core.conf import conf
 from core.help import clean
-
-
-def check_status(response: Response) -> None:
-    """Не-200 — ошибка запроса, а не пустая страница: иначе площадка с
-    переехавшим листингом выглядела бы обходом без лотов."""
-    if response.status != 200:
-        raise ValueError(f"{response.status} для {response.request.url}")
-
-
-# ── поиск по статусу ─────────────────────────────────────────────────────────
+from tp.common.site import Site, check_status
 
 
 @dataclass(frozen=True)
@@ -115,28 +98,19 @@ def page_fields(fields: list[tuple[str, str]], page_param: str, num_page: int) -
     return [(name, value) for name, value in fields if name != page_param] + [(page_param, str(num_page))]
 
 
-class StatusSearch(Crawler):
+class StatusSearch(Site):
     """Листинг по статусам: поиск -> страницы выдачи -> заход в каждые торги.
 
-    Движок задаёт поле статуса (``STATUS_FIELD``), параметр страницы
-    (``PAGE_PARAM``), разбор выдачи (``parse_listing``, ``find_next_page``) и
-    заход в торги (``trade_request``) со своим ``parse_trade``. Площадке
-    достаточно ``name`` и ``DOMAIN``.
+    Движок задаёт путь листинга (``LISTING_PATH``), поле статуса
+    (``STATUS_FIELD``), параметр страницы (``PAGE_PARAM``), разбор выдачи
+    (``parse_listing``, ``find_next_page``) и заход в торги (``trade_request``)
+    со своим ``parse_trade``. Площадке достаточно ``name`` и ``DOMAIN``.
     """
 
-    DOMAIN: ClassVar[str]
-    LISTING_PATH: ClassVar[str]
     STATUS_FIELD: ClassVar[str]
     PAGE_PARAM: ClassVar[str] = "page"
 
     params = SearchParams()
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        # Адрес листинга — из домена площадки и пути листинга движка: площадка
-        # может переопределить любой из двух. У базы движка домена нет.
-        if domain := getattr(cls, "DOMAIN", None):
-            cls.start_urls = [f"{domain.rstrip('/')}/{cls.LISTING_PATH}"]
 
     @staticmethod
     def parse_listing(page: Selector) -> list[dict[str, Any]]:
@@ -197,60 +171,3 @@ class StatusSearch(Crawler):
             yield self.search(index, next_page)
         elif index + 1 < len(self.searches):
             yield self.search(index + 1, 1)
-
-
-# ── детали со страницы торгов ────────────────────────────────────────────────
-
-
-@dataclass(frozen=True)
-class DetailParams:
-    """Сколько лотов обойти за прогон: первый прогон по всей базе был бы долгим."""
-
-    limit: int = 100
-
-
-class TradeDetail(Crawler):
-    """Примесь: вместо листинга — страницы торгов лотов, ждущих деталей.
-
-    Движок задаёт ``parse_detail(page, lot_ids)`` -> ``{lot_id: detail}`` и,
-    если страница торгов отдаётся не на простой GET, ``DETAIL_HEADERS``.
-    """
-
-    DETAIL_HEADERS: ClassVar[dict[str, str] | None] = None
-
-    params = DetailParams()
-
-    @staticmethod
-    def parse_detail(page: Selector, lot_ids: list[str]) -> dict[str, dict[str, Any]]:
-        raise NotImplementedError
-
-    async def start_requests(self) -> AsyncIterator[Request]:
-        lots = [lot async for lot in self.ctx.sink.pending_detail(self.params.limit)]
-        await self.log(f"ждут деталей: {len(lots)} (не больше {self.params.limit})")
-        for url, lot_ids in group_by_trade(lots).items():
-            yield self.request(url, headers=self.DETAIL_HEADERS, metadata={"lot_ids": lot_ids})
-
-    async def parse(self, response: Response) -> Any:
-        check_status(response)
-        lot_ids = response.metadata["lot_ids"]
-        details = self.parse_detail(response.selector(), lot_ids)
-        if missing := [lot_id for lot_id in lot_ids if lot_id not in details]:
-            await self.log(f"{response.request.url}: нет лотов {missing}")
-        for lot_id, detail in details.items():
-            yield {"lot_id": lot_id, "detail": detail}
-
-
-def group_by_trade(lots: list[dict[str, Any]]) -> dict[str, list[str]]:
-    """Адрес страницы торгов -> ``lot_id`` её лотов; без ``trade_url`` — страница лота."""
-    groups: dict[str, list[str]] = defaultdict(list)
-    for lot in lots:
-        groups[lot.get("trade_url") or lot["lot_url"]].append(lot["lot_id"])
-    return dict(groups)
-
-
-def detail_of(platform: type[Crawler], mixin: type[TradeDetail]) -> type[TradeDetail]:
-    """Детальный парсер площадки: её имя и настройки, разбор — страницы торгов.
-
-    Модуль — площадки: путь к своему сертификату фреймворк ищет от файла класса.
-    """
-    return type(f"{platform.__name__}Detail", (mixin, platform), {"__module__": platform.__module__})

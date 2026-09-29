@@ -1,25 +1,20 @@
 """Детальный парсер iTender: страница лота -> разделы с парами «подпись: значение».
 
-Какие лоты обходить, решает база, а не парсер: новые (деталей ещё нет) и
-изменившиеся после них — см. ``MongoStorage.pending_detail``. Список парсер
-берёт из хранилища, которое ему передаёт ``open_run`` (``ctx.sink``);
-записывает детали раннер — как и лоты листинга.
+Какие лоты обходить, решает база, а как — ``tp.common.detail.Detail``. У лота
+iTender своя страница (``lot_url``), так что запрос на лот один.
 
-Площадка своя у каждого лота, со своими особенностями (хук inprotect,
-TLS, сертификат), поэтому детальный парсер — не отдельная иерархия, а
-примесь к классу площадки: ``detail_of(Alfalot)``.
+Детальный парсер — примесь к классу площадки: ``detail_of(Alfalot)``.
 """
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from dataclasses import dataclass
 from typing import Any
 
-from collector import Request, Response
 from parsel import Selector
 
 from core.help import clean
+from tp.common.detail import Detail
+from tp.common.detail import detail_of as _detail_of
 from tp.itender.base import ITender
 
 #: Разделы, в которых нет сведений о лоте.
@@ -76,34 +71,15 @@ def parse_detail(page: Selector) -> dict[str, dict[str, str | list[str] | None]]
     return sections
 
 
-@dataclass(frozen=True)
-class DetailParams:
-    """Сколько лотов обойти за прогон: первый прогон по всей базе был бы долгим."""
-
-    limit: int = 100
-
-
-class ITenderDetail(ITender):
+class ITenderDetail(Detail):
     """Примесь: вместо листинга — страницы лотов, ждущих деталей."""
 
-    params = DetailParams()
-
-    async def start_requests(self) -> AsyncIterator[Request]:
-        lots = [lot async for lot in self.ctx.sink.pending_detail(self.params.limit)]
-        await self.log(f"ждут деталей: {len(lots)} (не больше {self.params.limit})")
-        for lot in lots:
-            yield self.request(lot["lot_url"], metadata = {"lot_id": lot["lot_id"]})
-
-    async def parse(self, response: Response) -> Any:
-        if response.status != 200:
-            raise ValueError(f"{response.status} для {response.request.url}")
-        yield {"lot_id": response.metadata["lot_id"], "detail": parse_detail(response.selector())}
+    @staticmethod
+    def parse_details(page: Selector, lot_ids: list[str]) -> dict[str, Any]:
+        # Страница лота — одна на лот: список из одного lot_id.
+        return {lot_id: parse_detail(page) for lot_id in lot_ids}
 
 
 def detail_of(platform: type[ITender]) -> type[ITenderDetail]:
-    """Детальный парсер площадки: её имя и настройки, разбор — страницы лота.
-
-    Модуль — площадки: путь к своему сертификату фреймворк ищет от файла
-    класса.
-    """
-    return type(f"{platform.__name__} Detail", (ITenderDetail, platform), {"__module__": platform.__module__})
+    """Детальный парсер площадки: её имя и настройки, разбор — страницы лота."""
+    return _detail_of(platform, ITenderDetail)

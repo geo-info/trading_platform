@@ -95,30 +95,39 @@ src/
     hooks/                сквозные обязанности (проверка inprotect)
     certs/                недостающие звенья TLS-цепочек
   tp/
-    common.py             общее для Kendo, btorg, rus-on: поиск по статусу
-                          GET-формой и детали со страницы торгов
+    common/               общее для движков
+      site.py             Site: адрес листинга из DOMAIN, check_status, narrow
+      detail.py           Detail: лоты, ждущие деталей, -> запросы; detail_of
+      search.py           StatusSearch: поиск по статусу GET-формой
+                          (только Kendo, btorg, rus-on)
     <движок>/
       base.py             базовый парсер: обход листинга, айтемы лотов
       detail.py           детальный парсер: лоты, ждущие деталей, -> detail
       source.py           площадки движка: класс, домен, настройки; PLATFORMS
     scripts/              отладочные прогоны iTender
 tests/
-  core/ kendo/ btorg/ ruson/            тесты по разделам кода,
+  core/ itender/ kendo/ btorg/ ruson/    тесты по разделам кода,
                                         фикстуры — в <раздел>/fixtures
 ```
 
-Площадка — это класс в `tp/<движок>/source.py`:
+Площадка — это класс в `tp/<движок>/source.py`. Настройки HTTP и параметры
+прогона — движка; площадка со своей особенностью сужает их через `narrow`:
 
 ```python
-class Seltim(Kendo):
-    name = 'seltim'
-    DOMAIN = 'https://bankrupt.seltim.ru'
-    settings = Settings(...)
-    params = SearchParams(statuses = ACTIVE, max_pages = conf.parsing.max_pages)
+class Centerr(ITender):
+    name = 'centerr'
+    DOMAIN = 'https://bankrupt.centerr.ru'
+
+
+class Alfalot(ITender):
+    name = 'alfalot'
+    DOMAIN = 'https://bankrupt.alfalot.ru'
+    settings = narrow(ITender, concurrency = 1, response_hooks = [solve_inprotect])
 ```
 
-Детальный парсер площадки — `detail_of(Seltim)` из `tp/<движок>/detail.py`:
-какие лоты обходить (новые и изменившиеся после деталей), решает база.
+Детальный парсер площадки — `detail_of(Centerr)` из `tp/<движок>/detail.py`:
+какие лоты обходить (новые и изменившиеся после деталей), решает база;
+параметры прогона — `limit` и `statuses` (только лоты с этими статусами).
 
 У Kendo, btorg и rus-on листинг перечисляет торги, а лоты — только на
 странице торгов, поэтому базовый парсер ищет по статусам (`statuses`,

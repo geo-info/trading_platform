@@ -1,6 +1,6 @@
 """Базовый парсер движка rus-on.
 
-Поиск по статусу — GET-форма листинга (см. ``tp.common.StatusSearch``). Поле
+Поиск по статусу — GET-форма листинга (см. ``tp.common.search.StatusSearch``). Поле
 статуса — ``trade_state``: у большинства площадок выпадающий список (значение
 — сам текст статуса), у nistp — чекбоксы ``trade_state[]``. Номер страницы —
 скрытое поле формы ``pagenum``.
@@ -27,7 +27,8 @@ from parsel import Selector
 from core.conf import conf
 from core.help import clean, digits
 from core.lot import Lot
-from tp.common import SearchParams, StatusSearch, check_status
+from tp.common.search import SearchParams, StatusSearch
+from tp.common.site import check_status
 
 KNOWN_STATUSES = [
     "Торги объявлены",

@@ -1,7 +1,7 @@
 """Базовый парсер движка btorg (edoc-ETP).
 
 Листинг ``/etp/trade/list.html`` — ``table.data``, строка на торги; поиск по
-статусу — GET-форма с полем ``processStatus`` (см. ``tp.common.StatusSearch``).
+статусу — GET-форма с полем ``processStatus`` (см. ``tp.common.search.StatusSearch``).
 Отдельного фильтра «торги объявлены» у движка нет: из актуальных фильтруется
 только «идёт приём заявок».
 
@@ -24,7 +24,8 @@ from parsel import Selector
 from core.conf import conf
 from core.help import clean, digits
 from core.lot import Lot
-from tp.common import SearchParams, StatusSearch, check_status
+from tp.common.search import SearchParams, StatusSearch
+from tp.common.site import check_status
 
 KNOWN_STATUSES = [
     "идёт приём заявок",

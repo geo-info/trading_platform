@@ -95,7 +95,7 @@ def test_детали_лота() -> None:
 
 async def test_детальный_парсер_один_запрос_на_торги() -> None:
     class Sink:
-        async def pending_detail(self, limit: int) -> Any:
+        async def pending_detail(self, limit: int, statuses: list[str] | None = None) -> Any:
             for lot_id in ("10840_1", "10840_2"):
                 yield {"lot_id": lot_id, "lot_url": f"{TRADE_URL}/lots/{lot_id}", "trade_url": TRADE_URL}
 

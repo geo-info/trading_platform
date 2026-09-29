@@ -13,12 +13,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
-from collector import Request
-
 from core.deps import open_run
+from tp.common.detail import DetailParams, detail_of
 from tp.itender.base import ITender
 from tp.itender.detail import ITenderDetail
 from tp.itender.source import PLATFORMS
@@ -38,16 +36,12 @@ ACTIVE = [
 class ActiveDetail(ITenderDetail):
     """Детальный парсер, которому база отдаёт только актуальные лоты."""
 
-    async def start_requests(self) -> AsyncIterator[Request]:
-        lots = [lot async for lot in self.ctx.sink.pending_detail(self.params.limit, ACTIVE)]
-        await self.log(f"актуальных ждут деталей: {len(lots)} (не больше {self.params.limit})")
-        for lot in lots:
-            yield self.request(lot["lot_url"], metadata = {"lot_id": lot["lot_id"]})
+    params = DetailParams(statuses = ",".join(ACTIVE))
 
 
 def active_detail_of(platform: type[ITender]) -> type[ActiveDetail]:
     """Как ``detail_of``: имя и настройки площадки, модуль — её (для сертификата)."""
-    return type(f"{platform.__name__}ActiveDetail", (ActiveDetail, platform), {"__module__": platform.__module__})
+    return detail_of(platform, ActiveDetail)
 
 
 async def go(tp: type[ITender]) -> None:

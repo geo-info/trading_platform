@@ -1,18 +1,21 @@
 """Базовый парсер движка iTender (он же Fogsoft).
 
 Листинг ``public/purchases-all/``, пейджер — ASP.NET ``__doPostBack``.
-Площадка наследует ``ITender`` и задаёт ``name`` и ``DOMAIN``.
+Площадка наследует ``ITender`` и задаёт ``name`` и ``DOMAIN``; особенность
+(хук, сертификат, TLS) — ``settings = narrow(ITender, ...)``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any
 
-from collector import Crawler, Response, Settings
+from collector import Response, Settings
 from parsel import Selector
 
+from core.conf import conf
 from core.help import clean
+from tp.common.site import Site, check_status
 
 
 def parse_rows(page: Selector) -> list[dict[str, Any]]:
@@ -66,31 +69,25 @@ def find_next_target(page: Selector, num_page: int) -> str | None:
 class ITenderParams:
     """Что задаётся на прогон: ``open_crawl(..., params={"max_pages": 5})``."""
 
-    max_pages: int = 21
+    max_pages: int = conf.parsing.max_pages
 
 
-class ITender(Crawler):
+class ITender(Site):
 
-    DOMAIN: ClassVar[str]
-    LISTING_PATH: ClassVar[str] = "public/purchases-all/"
+    LISTING_PATH = "public/purchases-all/"
 
+    # Площадка сужает их через ``narrow(ITender, ...)``: alfalot, например,
+    # за проверкой inprotect ходит в один поток.
     settings = Settings(
-        concurrency = 1,
+        concurrency = 5,
         delay = 0.5,
         timeout = 60.0,
         max_errors = 50,
     )
     params = ITenderParams()
 
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        # Адрес листинга — из домена площадки.
-        if "DOMAIN" in cls.__dict__:
-            cls.start_urls = [f"{cls.DOMAIN.rstrip('/')}/{cls.LISTING_PATH}"]
-
     async def parse(self, response: Response) -> Any:
-        if response.status != 200:
-            raise ValueError(f"{response.status} для {response.request.url}")
+        check_status(response)
         page = response.selector()
         num_page = response.metadata.get("num_page") or 1
         rows = parse_rows(page)

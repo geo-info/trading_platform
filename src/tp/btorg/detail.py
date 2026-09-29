@@ -3,7 +3,7 @@
 Какие лоты обходить, решает база (``Store.pending_detail``). Своей страницы у
 лота нет — всё о нём во фрагменте лотов торгов (``trade_url``), общем для
 лотов одних торгов: запрос на торги один, а деталей — по числу её лотов,
-ждущих деталей (см. ``tp.common.TradeDetail``). Фрагмент отдаётся только на
+ждущих деталей (см. ``tp.common.detail.Detail``). Фрагмент отдаётся только на
 AJAX-запрос.
 
 Детальный парсер — примесь к классу площадки: ``detail_of(Atctrade)``.
@@ -16,8 +16,8 @@ from typing import Any
 from parsel import Selector
 
 from tp.btorg.base import XHR, Btorg, lot_pairs, lot_tables, parse_schedule
-from tp.common import TradeDetail
-from tp.common import detail_of as _detail_of
+from tp.common.detail import Detail
+from tp.common.detail import detail_of as _detail_of
 
 
 def parse_detail(page: Selector, lot_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -31,12 +31,12 @@ def parse_detail(page: Selector, lot_ids: list[str]) -> dict[str, dict[str, Any]
     return details
 
 
-class BtorgDetail(TradeDetail):
+class BtorgDetail(Detail):
     """Примесь: вместо листинга — фрагменты лотов торгов, ждущих деталей."""
 
     DETAIL_HEADERS = XHR
 
-    parse_detail = staticmethod(parse_detail)
+    parse_details = staticmethod(parse_detail)
 
 
 def detail_of(platform: type[Btorg]) -> type[BtorgDetail]:

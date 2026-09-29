@@ -3,7 +3,7 @@
 Какие лоты обходить, решает база (``Store.pending_detail``). Всё о лоте —
 на странице торгов: сведения о торгах, карточка лота и документы. Страница
 у лотов одних торгов общая, поэтому запрос на торги один, а деталей — по
-числу её лотов, ждущих деталей (см. ``tp.common.TradeDetail``).
+числу её лотов, ждущих деталей (см. ``tp.common.detail.Detail``).
 
 Детальный парсер — примесь к классу площадки: ``detail_of(TradeAlliance)``.
 """
@@ -15,8 +15,8 @@ from typing import Any
 from parsel import Selector
 
 from core.help import clean
-from tp.common import TradeDetail
-from tp.common import detail_of as _detail_of
+from tp.common.detail import Detail
+from tp.common.detail import detail_of as _detail_of
 from tp.kendo.base import Kendo, lot_blocks, lot_link, lot_price, lot_status, parse_main_info
 
 
@@ -56,10 +56,10 @@ def parse_detail(page: Selector, lot_ids: list[str]) -> dict[str, dict[str, Any]
     return details
 
 
-class KendoDetail(TradeDetail):
+class KendoDetail(Detail):
     """Примесь: вместо листинга — страницы торгов лотов, ждущих деталей."""
 
-    parse_detail = staticmethod(parse_detail)
+    parse_details = staticmethod(parse_detail)
 
 
 def detail_of(platform: type[Kendo]) -> type[KendoDetail]:

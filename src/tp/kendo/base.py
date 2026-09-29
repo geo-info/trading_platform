@@ -1,7 +1,7 @@
 """Базовый парсер движка Kendo-ETP.
 
 Листинг ``/lots`` — карточки ``block-lot``, поиск по статусу — GET-форма с
-полем ``status_id`` (см. ``tp.common.StatusSearch``). На одних площадках
+полем ``status_id`` (см. ``tp.common.search.StatusSearch``). На одних площадках
 карточка на торги (``<a>``), на других — на лот (``<div>``); в обоих
 вариантах есть ссылка «Номер торгов» ``/{тип}/{id}`` — адрес торгов. Лоты и
 цены — только на странице торгов: ``div#lots``, сведения о торгах — пары
@@ -21,7 +21,8 @@ from parsel import Selector
 from core.conf import conf
 from core.help import clean, digits
 from core.lot import Lot
-from tp.common import SearchParams, StatusSearch, check_status
+from tp.common.search import SearchParams, StatusSearch
+from tp.common.site import check_status
 
 #: Все названия статусов, что встречаются на площадках движка.
 KNOWN_STATUSES = [

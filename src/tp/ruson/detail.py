@@ -3,7 +3,7 @@
 Какие лоты обходить, решает база (``Store.pending_detail``). Своей страницы у
 лота нет — всё о нём на странице торгов, общей для лотов одних торгов: запрос
 на торги один, а деталей — по числу её лотов, ждущих деталей (см.
-``tp.common.TradeDetail``).
+``tp.common.detail.Detail``).
 
 Детальный парсер — примесь к классу площадки: ``detail_of(Nistp)``.
 """
@@ -14,8 +14,8 @@ from typing import Any
 
 from parsel import Selector
 
-from tp.common import TradeDetail
-from tp.common import detail_of as _detail_of
+from tp.common.detail import Detail
+from tp.common.detail import detail_of as _detail_of
 from tp.ruson.base import Ruson, block, lot_tables, pairs_of
 
 #: Разделы страницы торгов, общие для всех её лотов: заголовок на странице -> раздел деталей.
@@ -38,10 +38,10 @@ def parse_detail(page: Selector, lot_ids: list[str]) -> dict[str, dict[str, Any]
     return details
 
 
-class RusonDetail(TradeDetail):
+class RusonDetail(Detail):
     """Примесь: вместо листинга — страницы торгов лотов, ждущих деталей."""
 
-    parse_detail = staticmethod(parse_detail)
+    parse_details = staticmethod(parse_detail)
 
 
 def detail_of(platform: type[Ruson]) -> type[RusonDetail]:
