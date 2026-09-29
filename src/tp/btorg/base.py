@@ -155,15 +155,14 @@ class BtorgParams:
 
 
 class Btorg(Crawler):
-
     DOMAIN: ClassVar[str]
     LISTING_PATH: ClassVar[str] = "etp/trade/list.html"
 
     settings = Settings(
-        concurrency = 1,
-        delay = conf.parsing.delay,
-        timeout = conf.parsing.http_timeout,
-        max_errors = 50,
+        concurrency=1,
+        delay=conf.parsing.delay,
+        timeout=conf.parsing.http_timeout,
+        max_errors=50,
     )
     params = BtorgParams()
 
@@ -185,7 +184,7 @@ class Btorg(Crawler):
 
         for trade in trades:
             yield response.follow(
-                trade["trade_url"], callback = self.parse_trade, headers = XHR, metadata = {"trade": trade}
+                trade["trade_url"], callback=self.parse_trade, headers=XHR, metadata={"trade": trade}
             )
 
         next_page = find_next_page(page, num_page)
@@ -195,7 +194,7 @@ class Btorg(Crawler):
             await self.log(f"дошли до предела max_pages={self.params.max_pages}, дальше не листаем")
         else:
             number, href = next_page
-            yield response.follow(href, metadata = {"num_page": number})
+            yield response.follow(href, metadata={"num_page": number})
 
     async def parse_trade(self, response: Response) -> Any:
         """Фрагмент лотов торгов: по ``Lot`` на лот; адрес лота — страница торгов."""
@@ -204,4 +203,4 @@ class Btorg(Crawler):
         trade = response.metadata["trade"]
         lot_url, trade_url = response.urljoin(trade["page_url"]), response.request.url
         for lot in parse_lots(response.selector(), trade):
-            yield Lot(source = self.name, lot_url = lot_url, trade_url = trade_url, **lot).model_dump()
+            yield Lot(source=self.name, lot_url=lot_url, trade_url=trade_url, **lot).model_dump()

@@ -56,7 +56,7 @@ class KendoDetail(Kendo):
         for lot in lots:
             trades[lot.get("trade_url") or lot["lot_url"]].append(lot["lot_id"])
         for url, lot_ids in trades.items():
-            yield self.request(url, metadata = {"lot_ids": lot_ids})
+            yield self.request(url, metadata={"lot_ids": lot_ids})
 
     async def parse(self, response: Response) -> Any:
         if response.status != 200:

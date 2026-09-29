@@ -75,7 +75,9 @@ def find_next_page(page: Selector, num_page: int) -> tuple[int, str] | None:
     отрезаются (``local_href``): пейджер у части площадок ссылается на http.
     """
     later = []
-    for href in page.xpath('//ul[contains(@class, "pagination")]//a[contains(@href, "page=")]/@href').getall():
+    for href in page.xpath(
+        '//ul[contains(@class, "pagination")]//a[contains(@href, "page=")]/@href'
+    ).getall():
         n = digits(href.split("page=", 1)[1])
         if n and int(n) > num_page:
             later.append((int(n), local_href(href)))
@@ -146,15 +148,14 @@ class KendoParams:
 
 
 class Kendo(Crawler):
-
     DOMAIN: ClassVar[str]
     LISTING_PATH: ClassVar[str] = "lots"
 
     settings = Settings(
-        concurrency = 1,
-        delay = conf.parsing.delay,
-        timeout = conf.parsing.http_timeout,
-        max_errors = 50,
+        concurrency=1,
+        delay=conf.parsing.delay,
+        timeout=conf.parsing.http_timeout,
+        max_errors=50,
     )
     params = KendoParams()
 
@@ -175,7 +176,7 @@ class Kendo(Crawler):
         await self.log(f"страница {num_page}: торгов {len(trades)}")
 
         for trade in trades:
-            yield response.follow(trade["trade_url"], callback = self.parse_trade, metadata = {"trade": trade})
+            yield response.follow(trade["trade_url"], callback=self.parse_trade, metadata={"trade": trade})
 
         next_page = find_next_page(page, num_page)
         if next_page is None:
@@ -184,7 +185,7 @@ class Kendo(Crawler):
             await self.log(f"дошли до предела max_pages={self.params.max_pages}, дальше не листаем")
         else:
             number, href = next_page
-            yield response.follow(href, metadata = {"num_page": number})
+            yield response.follow(href, metadata={"num_page": number})
 
     async def parse_trade(self, response: Response) -> Any:
         """Страница торгов: по ``Lot`` на лот."""
@@ -194,8 +195,8 @@ class Kendo(Crawler):
         for lot in parse_lots(response.selector(), response.metadata["trade"]):
             href = lot.pop("lot_href")
             yield Lot(
-                source = self.name,
-                lot_url = response.urljoin(local_href(href)) if href else trade_url,
-                trade_url = trade_url,
+                source=self.name,
+                lot_url=response.urljoin(local_href(href)) if href else trade_url,
+                trade_url=trade_url,
                 **lot,
             ).model_dump()

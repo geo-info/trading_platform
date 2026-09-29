@@ -232,15 +232,14 @@ class RusonParams:
 
 
 class Ruson(Crawler):
-
     DOMAIN: ClassVar[str]
     LISTING_PATH: ClassVar[str] = "bankrot/trade_list.php"
 
     settings = Settings(
-        concurrency = 1,
-        delay = conf.parsing.delay,
-        timeout = conf.parsing.http_timeout,
-        max_errors = 50,
+        concurrency=1,
+        delay=conf.parsing.delay,
+        timeout=conf.parsing.http_timeout,
+        max_errors=50,
     )
     params = RusonParams()
 
@@ -264,7 +263,7 @@ class Ruson(Crawler):
         await self.log(f"страница {num_page}: торгов {len(trades)}")
 
         for trade in trades:
-            yield response.follow(trade["trade_url"], callback = self.parse_trade, metadata = {"trade": trade})
+            yield response.follow(trade["trade_url"], callback=self.parse_trade, metadata={"trade": trade})
 
         next_page = find_next_page(page, num_page)
         if next_page is None:
@@ -273,7 +272,7 @@ class Ruson(Crawler):
             await self.log(f"дошли до предела max_pages={self.params.max_pages}, дальше не листаем")
         else:
             yield self.request(
-                self.start_urls[0], params = {"pagenum": next_page}, metadata = {"num_page": next_page}
+                self.start_urls[0], params={"pagenum": next_page}, metadata={"num_page": next_page}
             )
 
     async def parse_trade(self, response: Response) -> Any:
@@ -282,4 +281,4 @@ class Ruson(Crawler):
             raise ValueError(f"{response.status} для {response.request.url}")
         trade_url = response.request.url
         for lot in parse_lots(response.selector(), response.metadata["trade"]):
-            yield Lot(source = self.name, lot_url = trade_url, trade_url = trade_url, **lot).model_dump()
+            yield Lot(source=self.name, lot_url=trade_url, trade_url=trade_url, **lot).model_dump()

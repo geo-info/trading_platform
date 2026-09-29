@@ -71,15 +71,14 @@ class ITenderParams:
 
 
 class ITender(Crawler):
-
     DOMAIN: ClassVar[str]
     LISTING_PATH: ClassVar[str] = "public/purchases-all/"
 
     settings = Settings(
-        concurrency = 1,
-        delay = 0.5,
-        timeout = 60.0,
-        max_errors = 50,
+        concurrency=1,
+        delay=0.5,
+        timeout=60.0,
+        max_errors=50,
     )
     params = ITenderParams()
 
@@ -108,8 +107,8 @@ class ITender(Crawler):
             await self.log(f"дошли до предела max_pages={self.params.max_pages}, дальше не листаем")
         else:
             yield response.form_request(
-                formdata = {"__EVENTTARGET": next_target, "__EVENTARGUMENT": ""},
-                metadata = {"num_page": num_page + 1},
+                formdata={"__EVENTTARGET": next_target, "__EVENTARGUMENT": ""},
+                metadata={"num_page": num_page + 1},
             )
 
     def make_item(self, row: dict[str, Any], response: Response) -> dict[str, Any]:

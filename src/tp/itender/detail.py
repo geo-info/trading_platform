@@ -92,7 +92,7 @@ class ITenderDetail(ITender):
         lots = [lot async for lot in self.ctx.sink.pending_detail(self.params.limit)]
         await self.log(f"ждут деталей: {len(lots)} (не больше {self.params.limit})")
         for lot in lots:
-            yield self.request(lot["lot_url"], metadata = {"lot_id": lot["lot_id"]})
+            yield self.request(lot["lot_url"], metadata={"lot_id": lot["lot_id"]})
 
     async def parse(self, response: Response) -> Any:
         if response.status != 200:

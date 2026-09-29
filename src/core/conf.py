@@ -30,11 +30,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
-ENV = SettingsConfigDict(
-    env_file = ROOT_DIR / ".env",
-    env_file_encoding = "utf-8",
-    extra = "ignore"
-)
+ENV = SettingsConfigDict(env_file=ROOT_DIR / ".env", env_file_encoding="utf-8", extra="ignore")
 
 
 class MongoSettings(BaseSettings):
@@ -50,24 +46,23 @@ class MongoSettings(BaseSettings):
 
 
 class ParsingSettings(BaseSettings):
-
     model_config = ENV
 
     since: date | None = None
-    delay: float = Field(default = 0.5, ge = 0)
-    max_pages: int = Field(default = 100, ge = 1)
-    platform_concurrency: int = Field(default = 16, ge = 1)
-    http_timeout: float = Field(default = 60.0, gt = 0)
+    delay: float = Field(default=0.5, ge=0)
+    max_pages: int = Field(default=100, ge=1)
+    platform_concurrency: int = Field(default=16, ge=1)
+    http_timeout: float = Field(default=60.0, gt=0)
 
 
 class Settings(BaseModel):
     """Все настройки приложения, по группам."""
 
-    mongo: MongoSettings = Field(default_factory = MongoSettings)
-    parsing: ParsingSettings = Field(default_factory = ParsingSettings)
+    mongo: MongoSettings = Field(default_factory=MongoSettings)
+    parsing: ParsingSettings = Field(default_factory=ParsingSettings)
 
 
-@lru_cache(maxsize = 1)
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Настройки одним экземпляром на процесс.
 

@@ -49,8 +49,8 @@ async def open_run(collection: str, crawler: type[Crawler]) -> AsyncIterator[Run
         logger.info("[%s] %s", crawler.name, message)
 
     async with (
-        MongoStorage(source = crawler.name, collection = collection) as storage,
+        MongoStorage(source=crawler.name, collection=collection) as storage,
         # Хранилище — и парсеру (ctx.sink): детальный берёт из него, какие лоты обходить.
-        open_crawl(crawler, sink = storage, log = log) as crawl
+        open_crawl(crawler, sink=storage, log=log) as crawl,
     ):
         yield Run(storage, crawl)
