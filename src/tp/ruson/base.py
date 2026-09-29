@@ -182,19 +182,40 @@ def lot_tables(page: Selector) -> list[tuple[str, str, Selector]]:
     tables = []
     for marker in markers:
         title = clean(marker.xpath("string(.)").get()) or ""
-        if lot_num := digits(title.split("Лот №", 1)[1].strip()):
-            tables.append((lot_num, title, marker.xpath("./ancestor::table[1]")))
+        table = marker.xpath("./ancestor::table[1]")
+        if (lot_num := digits(title.split("Лот №", 1)[1].strip())) and table:
+            tables.append((lot_num, title, table[0]))
     return tables
 
 
 def lot_pairs(table: Selector) -> dict[str, str]:
-    """Пары «подпись: значение» таблицы лота."""
-    return {
-        label.rstrip(":").strip(): value
-        for row in table.xpath(".//tr[td[2]]")
-        if (label := clean(row.xpath("string(./td[1])").get()))
-        and (value := clean(row.xpath("string(./td[2])").get()))
-    }
+    """Пары «подпись: значение» таблицы лота — только её собственные строки.
+
+    Внутри таблицы лота бывает вложенная таблица интервалов снижения цены: её
+    строки дали бы пары «дата начала: дата окончания», а строка, в которой она
+    лежит, — склеенный текст всей таблицы. График разбирает ``parse_schedule``.
+    """
+    pairs = {}
+    for row in table.xpath(".//tr[td[2]][not(td[2]//table)]"):
+        if row.xpath("ancestor::table[1]")[0].root is not table.root:
+            continue
+        label = clean(row.xpath("string(./td[1])").get())
+        value = clean(row.xpath("string(./td[2])").get())
+        if label and value:
+            pairs[label.rstrip(":").strip()] = value
+    return pairs
+
+
+def parse_schedule(table: Selector) -> list[dict[str, str]]:
+    """Интервалы снижения цены из вложенной таблицы лота: строка -> {заголовок: ячейка}."""
+    inner = table.xpath('.//table[contains(@class, "discount_int")]')
+    headers = [clean(th.xpath("string(.)").get()) or "" for th in inner.xpath(".//tr[1]/*")]
+    schedule = []
+    for row in inner.xpath(".//tr[td]"):
+        cells = [clean(td.xpath("string(.)").get()) or "" for td in row.xpath("./td")]
+        if headers and len(cells) == len(headers):
+            schedule.append(dict(zip(headers, cells, strict=True)))
+    return schedule
 
 
 def parse_lots(page: Selector, trade: dict[str, Any]) -> list[dict[str, Any]]:

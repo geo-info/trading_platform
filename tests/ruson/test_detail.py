@@ -1,9 +1,11 @@
-"""Детали rus-on: пары таблицы каждого лота, группировка по торгам, пропавший лот, класс детального парсера."""
+"""Детали rus-on: пары таблицы каждого лота, график снижения цены, группировка по торгам, пропавший лот, класс детального парсера."""
 
 from __future__ import annotations
 
 from collector import Request
+from parsel import Selector
 
+from core.help import parse_datetime
 from tests.conftest import Sink, collect, make, page, read_fixture, respond
 from tp.ruson.base import Ruson
 from tp.ruson.detail import RusonDetail, detail_of, parse_details
@@ -17,7 +19,8 @@ URL = "https://nistp.ru/bankrot/trade_view.php?trade_nid=496200"
 def test_parse_details() -> None:
     details = parse_details(page(TRADE))
     assert set(details) == {"1", "4", "7"}
-    assert all(len(pairs) == 17 for pairs in details.values())
+    # 11 пар своей таблицы лота + график; строки вложенной таблицы интервалов — не пары.
+    assert all(len(pairs) == 12 for pairs in details.values())
     assert details["1"]["Номер лота"] == "1"
     assert details["1"]["Наименование имущества"] == "Земельные участки в количестве 10 единиц"
     assert details["1"]["Начальная цена"] == "21 434 427.98"
@@ -25,6 +28,40 @@ def test_parse_details() -> None:
     assert details["7"]["Местонахождение имущества"] == "Самарская область, сельское поселение Красный Яр"
     assert details["7"]["Начальная цена"] == "628 176.38"
     assert details["4"]["Начальная цена"] == "267 690.47"
+
+
+def test_строки_графика_не_попадают_в_пары() -> None:
+    """Строки вложенной таблицы интервалов давали пары «дата начала: дата окончания»,
+    а сама строка «Интервалы снижения цены» — склеенный текст всей таблицы."""
+    for pairs in parse_details(page(TRADE)).values():
+        labels = [label for label in pairs if label != "price_schedule"]
+        assert [label for label in labels if parse_datetime(label)] == []
+        assert "Интервалы снижения цены" not in pairs
+
+
+def test_график_снижения_цены() -> None:
+    details = parse_details(page(TRADE))
+    schedule = details["1"]["price_schedule"]
+    assert len(schedule) == 5
+    assert schedule[0] == {
+        "Дата начала интервала": "27.09.2026 10:00",
+        "Дата окончания интервала": "07.10.2026 09:59",
+        "Цена на интервале, руб.": "21 434 427.98",
+        "Размер задатка, руб.": "2 143 442.80",
+    }
+    assert schedule[-1]["Дата окончания интервала"] == "04.11.2026 10:00"
+    assert details["4"]["price_schedule"][0]["Цена на интервале, руб."] == "267 690.47"
+
+
+def test_лот_без_графика() -> None:
+    html = (
+        "<table><tr><th>Лот № 1</th></tr>"
+        "<tr><td>Наименование имущества</td><td>Квартира</td></tr>"
+        "<tr><td>Начальная цена</td><td>1 000.00</td></tr></table>"
+    )
+    assert parse_details(Selector(html)) == {
+        "1": {"Наименование имущества": "Квартира", "Начальная цена": "1 000.00", "price_schedule": []}
+    }
 
 
 async def test_start_requests_группирует() -> None:
