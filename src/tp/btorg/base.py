@@ -23,6 +23,7 @@ from parsel import Selector
 from core.conf import conf
 from core.help import clean, digits, local_href
 from core.lot import Lot
+from core.registry import register
 
 #: AJAX-фрагмент с лотами торгов — с ценами, которых нет в листинге.
 LOTS_PATH = "/etp/trade/inner-view-lots.html"
@@ -171,6 +172,7 @@ class Btorg(Crawler):
         # Адрес листинга — из домена площадки.
         if "DOMAIN" in cls.__dict__:
             cls.start_urls = [f"{cls.DOMAIN.rstrip('/')}/{cls.LISTING_PATH}"]
+            register(cls)
 
     async def parse(self, response: Response) -> Any:
         """Страница листинга: зайти за лотами каждых торгов, затем следующая страница."""

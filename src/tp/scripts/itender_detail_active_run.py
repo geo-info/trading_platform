@@ -21,9 +21,11 @@ from collector import Request
 from core.deps import open_run
 from tp.itender.base import ITender
 from tp.itender.detail import ITenderDetail
-from tp.itender.source import PLATFORMS
+from tp.platforms import platforms
 
 logger = logging.getLogger(__name__)
+
+PLATFORMS = platforms(ITender)
 
 #: Статусы как их пишет листинг; «Приём» через «ё» — у tendergarant и utender.
 ACTIVE = [

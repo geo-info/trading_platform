@@ -46,9 +46,3 @@ class PtpCenter(Btorg):
 
     name = "ptp_center"
     DOMAIN = "https://ptp-center.ru"
-
-
-#: Все площадки движка: имя -> класс.
-PLATFORMS: dict[str, type[Btorg]] = {
-    cls.name: cls for cls in Btorg.__subclasses__() if cls.__module__ == __name__
-}

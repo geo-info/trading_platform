@@ -15,10 +15,13 @@ import sys
 
 from core.conf import conf
 from core.db.mongo.client import create_client
-from tp.itender.source import PLATFORMS
+from tp.itender.base import ITender
+from tp.platforms import platforms
 
 NO_DETAIL = {"detail_at": {"$exists": False}}
 STALE = {"detail_at": {"$exists": True}, "$expr": {"$gt": ["$updated_at", "$detail_at"]}}
+
+PLATFORMS = platforms(ITender)
 
 
 async def stat(names: list[str], statuses: list[str] | None = None) -> None:

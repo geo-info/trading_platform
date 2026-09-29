@@ -13,6 +13,7 @@ from collector import Crawler, Response, Settings
 from parsel import Selector
 
 from core.help import clean
+from core.registry import register
 
 
 def parse_rows(page: Selector) -> list[dict[str, Any]]:
@@ -87,6 +88,7 @@ class ITender(Crawler):
         # Адрес листинга — из домена площадки.
         if "DOMAIN" in cls.__dict__:
             cls.start_urls = [f"{cls.DOMAIN.rstrip('/')}/{cls.LISTING_PATH}"]
+            register(cls)
 
     async def parse(self, response: Response) -> Any:
         if response.status != 200:

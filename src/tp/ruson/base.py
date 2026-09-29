@@ -25,6 +25,7 @@ from parsel import Selector
 from core.conf import conf
 from core.help import clean, digits, local_href
 from core.lot import Lot
+from core.registry import register
 
 #: Заголовки колонок листинга — части слов, в разных написаниях площадок.
 COLUMNS = {
@@ -249,6 +250,9 @@ class Ruson(Crawler):
         # свой, поэтому пересобираем и тогда, когда задан только он.
         if "DOMAIN" in cls.__dict__ or "LISTING_PATH" in cls.__dict__:
             cls.start_urls = [f"{cls.DOMAIN.rstrip('/')}/{cls.LISTING_PATH}"]
+        # Площадка — класс, объявивший домен; прочие наследники — примеси.
+        if "DOMAIN" in cls.__dict__:
+            register(cls)
 
     async def parse(self, response: Response) -> Any:
         """Страница листинга: зайти в каждые торги, затем следующая страница."""

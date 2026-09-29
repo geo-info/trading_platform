@@ -21,6 +21,7 @@ from parsel import Selector
 from core.conf import conf
 from core.help import clean, digits, local_href
 from core.lot import Lot
+from core.registry import register
 
 
 def is_trade_number(text: str) -> bool:
@@ -162,6 +163,7 @@ class Kendo(Crawler):
         # Адрес листинга — из домена площадки.
         if "DOMAIN" in cls.__dict__:
             cls.start_urls = [f"{cls.DOMAIN.rstrip('/')}/{cls.LISTING_PATH}"]
+            register(cls)
 
     async def parse(self, response: Response) -> Any:
         """Страница листинга: зайти в каждые торги, затем следующая страница."""

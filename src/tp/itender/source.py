@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from collector import Settings
+
 from core.conf import conf
 from core.hooks.inprotect import solve_inprotect
 from tp.itender.base import ITender, ITenderParams
-
 
 
 class Alfalot(ITender):
@@ -248,9 +248,3 @@ class Zakazrf(ITender):
     )
 
     params = ITenderParams(max_pages = conf.parsing.max_pages)
-
-
-#: Все площадки движка: имя -> класс.
-PLATFORMS: dict[str, type[ITender]] = {
-    cls.name: cls for cls in ITender.__subclasses__() if cls.__module__ == __name__
-}

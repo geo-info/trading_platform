@@ -14,9 +14,11 @@ from datetime import UTC, datetime
 from core.deps import open_run
 from tp.itender.base import ITender
 from tp.itender.detail import detail_of
-from tp.itender.source import PLATFORMS
+from tp.platforms import platforms
 
 logger = logging.getLogger(__name__)
+
+PLATFORMS = platforms(ITender)
 
 
 async def go(tp: type[ITender]) -> None:

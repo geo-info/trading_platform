@@ -38,9 +38,3 @@ class Vetp(Kendo):
 
     name = "vetp"
     DOMAIN = "https://банкрот.вэтп.рф"
-
-
-#: Все площадки движка: имя -> класс.
-PLATFORMS: dict[str, type[Kendo]] = {
-    cls.name: cls for cls in Kendo.__subclasses__() if cls.__module__ == __name__
-}

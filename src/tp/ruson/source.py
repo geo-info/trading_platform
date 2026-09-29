@@ -40,9 +40,3 @@ class Promkonsalt(Ruson):
     name = "promkonsalt"
     DOMAIN = "https://promkonsalt.ru"
     LISTING_PATH = "tradelist.php"
-
-
-#: Все площадки движка: имя -> класс.
-PLATFORMS: dict[str, type[Ruson]] = {
-    cls.name: cls for cls in Ruson.__subclasses__() if cls.__module__ == __name__
-}
