@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from collector import Request
 from parsel import Selector
 
@@ -99,6 +100,13 @@ async def test_пропавший_лот_detail_none() -> None:
     assert [i["lot_id"] for i in items] == ["496200_1", "496200_99"]
     assert items[0]["detail"] is not None
     assert items[1]["detail"] is None
+
+
+async def test_страница_без_лотов_ошибка() -> None:
+    d = make(D)
+    req = Request(url=URL, metadata={"lot_ids": ["1_1"]})
+    with pytest.raises(ValueError, match="нет лотов"):
+        await collect(d.parse(respond(d, req, "<html><body>заглушка</body></html>")))
 
 
 def test_detail_of() -> None:

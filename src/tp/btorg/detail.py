@@ -54,6 +54,10 @@ class BtorgDetail(Btorg):
         if response.status != 200:
             raise ValueError(f"{response.status} для {response.request.url}")
         details = parse_details(response.selector())
+        # Ни одного лота — это не торги, а заглушка, ошибка или переезд: отметить
+        # все лоты «сняты» значило бы убрать их из очереди без деталей.
+        if not details:
+            raise ValueError(f"нет таблиц лотов во фрагменте {response.request.url}")
         for lot_id in response.metadata["lot_ids"]:
             # lot_id — «{trade_id}_{lot_num}», trade_id — одни цифры.
             lot_num = lot_id.partition("_")[2]
