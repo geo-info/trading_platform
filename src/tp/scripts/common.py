@@ -132,7 +132,7 @@ def report(results: Sequence[Result], done_title: str, new_title: str) -> int:
         f"площадок: {len(results) - len(failed)} из {len(results)}"
         + (f"; упали: {', '.join(failed)}" if failed else "")
     )
-    print(f"хранилище: {conf.mongo.uri}/{conf.mongo.db}.{conf.mongo.collection}")
+    print(f"хранилище: {conf.mongo.uri}/{conf.mongo.db}.<площадка>")
     return 1 if failed else 0
 
 

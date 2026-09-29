@@ -34,15 +34,17 @@ ENV = SettingsConfigDict(env_file=ROOT_DIR / ".env", env_file_encoding="utf-8", 
 
 
 class MongoSettings(BaseSettings):
-    """Куда писать лоты. Переменные — ``MONGO_URI``, ``MONGO_DB``, ``MONGO_COLLECTION``."""
+    """Куда писать лоты. Переменные — ``MONGO_URI``, ``MONGO_DB``.
+
+    Коллекция своя у каждой площадки и называется её именем, поэтому
+    настройки для неё нет.
+    """
 
     model_config = SettingsConfigDict(**ENV, env_prefix="MONGO_")
 
     #: Адрес Mongo. По умолчанию — та, что поднимает compose.yaml.
     uri: str = "mongodb://localhost:27017"
     db: str = "trading"
-    #: Все площадки пишут в одну коллекцию, различает их поле source.
-    collection: str = "lots"
 
 
 class ParsingSettings(BaseSettings):

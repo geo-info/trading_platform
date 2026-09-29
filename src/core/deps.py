@@ -48,19 +48,18 @@ async def open_run(
     crawler: type[Crawler],
     *,
     params: Mapping[str, Any] | None = None,
-    collection: str | None = None,
 ) -> AsyncIterator[Run]:
     """Прогон площадки ``crawler``: её хранилище и обход.
 
-    ``params`` — параметры прогона для фреймворка (``max_pages``, ``limit``);
-    ``collection`` — куда писать, по умолчанию общая коллекция из настроек.
+    ``params`` — параметры прогона для фреймворка (``max_pages``, ``limit``).
+    Пишет в коллекцию площадки — ту, что названа её именем.
     """
 
     async def log(message: str) -> None:
         logger.info("[%s] %s", crawler.name, message)
 
     async with (
-        MongoStorage(source=crawler.name, collection=crawler.name) as storage,
+        MongoStorage(source=crawler.name) as storage,
         # Хранилище — и парсеру (ctx.sink): детальный берёт из него, какие лоты обходить.
         open_crawl(crawler, params=params, sink=storage, log=log) as crawl,
     ):

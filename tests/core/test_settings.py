@@ -19,7 +19,6 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in (
         "MONGO_URI",
         "MONGO_DB",
-        "MONGO_COLLECTION",
         "MAX_PAGES",
         "SINCE",
         "DELAY",
@@ -32,7 +31,7 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_умолчания_работают_без_окружения() -> None:
     mongo = MongoSettings(_env_file=None)
     parsing = ParsingSettings(_env_file=None)
-    assert (mongo.uri, mongo.db, mongo.collection) == ("mongodb://localhost:27017", "trading", "lots")
+    assert (mongo.uri, mongo.db) == ("mongodb://localhost:27017", "trading")
     assert (parsing.max_pages, parsing.since, parsing.delay) == (100, None, 0.5)
     assert (parsing.platform_concurrency, parsing.http_timeout) == (16, 60.0)
 
@@ -41,13 +40,12 @@ def test_имена_переменных_прежние(monkeypatch: pytest.Monk
     """MONGO_URI, MAX_PAGES и т. д. — как в README: .env и CI не надо трогать."""
     monkeypatch.setenv("MONGO_URI", "mongodb://db:27017")
     monkeypatch.setenv("MONGO_DB", "trading_check")
-    monkeypatch.setenv("MONGO_COLLECTION", "lots_v2")
     monkeypatch.setenv("MAX_PAGES", "30")
     monkeypatch.setenv("SINCE", "2026-06-01")
     monkeypatch.setenv("DELAY", "1.5")
     mongo = MongoSettings(_env_file=None)
     parsing = ParsingSettings(_env_file=None)
-    assert (mongo.uri, mongo.db, mongo.collection) == ("mongodb://db:27017", "trading_check", "lots_v2")
+    assert (mongo.uri, mongo.db) == ("mongodb://db:27017", "trading_check")
     assert (parsing.max_pages, parsing.since, parsing.delay) == (30, date(2026, 6, 1), 1.5)
 
 

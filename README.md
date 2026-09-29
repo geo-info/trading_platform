@@ -57,9 +57,11 @@ docker compose down -v        # остановить и стереть собр�
 docker compose --profile tools up -d    # mongo-express на 127.0.0.1:8081
 ```
 
-Коллекция одна на все площадки — `trading.lots`; площадку различает поле
-`source`, ключ документа — `(source, lot_id)`. Уникальный индекс по нему
-создаёт сам код при открытии хранилища.
+У каждой площадки своя коллекция, названная её именем: `trading.bep`,
+`trading.seltim` и т. д. Ключ документа — `(source, lot_id)`, поле `source`
+есть и в документе. Уникальный индекс по ключу создаёт сам код при открытии
+хранилища. Пересобрать одну площадку — удалить её коллекцию
+(`db.bep.drop()`), всю базу — `uv run python -m tp.scripts.drop_db`.
 
 Документ лота:
 
@@ -80,7 +82,7 @@ docker compose --profile tools up -d    # mongo-express на 127.0.0.1:8081
   `detail_at`: прежние детали остаются, в очередь он не возвращается.
 
 ```bash
-docker compose exec mongo mongosh trading --eval 'db.lots.countDocuments({source: "bep"})'
+docker compose exec mongo mongosh trading --eval 'db.bep.countDocuments()'
 ```
 
 ## Настройки
@@ -94,7 +96,6 @@ docker compose exec mongo mongosh trading --eval 'db.lots.countDocuments({source
 |---|---|---|
 | `MONGO_URI` | `mongodb://localhost:27017` | адрес базы |
 | `MONGO_DB` | `trading` | имя базы |
-| `MONGO_COLLECTION` | `lots` | коллекция, общая на все площадки |
 | `MAX_PAGES` | `100` | предел страниц листинга по умолчанию у движков; скрипт `crawl` задаёт свой (`--max-pages`, 30) |
 | `DELAY` | `0.5` | пауза между запросами к одной площадке, с |
 | `PLATFORM_CONCURRENCY` | `16` | сколько площадок обходить разом |
