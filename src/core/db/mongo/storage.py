@@ -27,9 +27,9 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from core.conf import conf
 from core.db.base import KEY_FIELDS, Store, key_of
 from core.db.mongo.client import create_client
-from core.conf import conf
 
 
 class MongoStorage(Store):
@@ -102,7 +102,8 @@ class MongoStorage(Store):
         изменился после них (``updated_at > detail_at``) — детали устарели.
         Лот, чья страница не открылась, ``detail_at`` не получит и попадёт в
         выборку снова. Свежие — первыми. ``statuses`` — только лоты с этими
-        статусами (как их пишет листинг).
+        статусами (как их пишет листинг). ``trade_url`` — у движков, где
+        детали лота лежат на странице торгов, а не на странице лота.
         """
         query: dict[str, Any] = {
             "source": self.source,
@@ -113,7 +114,7 @@ class MongoStorage(Store):
         }
         if statuses:
             query["status"] = {"$in": statuses}
-        projection = {"_id": 0, "lot_id": 1, "lot_url": 1}
+        projection = {"_id": 0, "lot_id": 1, "lot_url": 1, "trade_url": 1}
         return self.collection.find(query, projection).sort("created_at", -1).limit(limit)
 
     async def save_detail(self, lot_id: str, detail: Mapping[str, Any], at: datetime) -> None:

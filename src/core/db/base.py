@@ -43,7 +43,7 @@ class Store(ABC):
     def pending_detail(
         self, limit: int = 0, statuses: list[str] | None = None
     ) -> AsyncIterator[dict[str, Any]]:
-        """``lot_id`` и ``lot_url`` лотов, которым нужна страница деталей;
+        """``lot_id``, ``lot_url`` и ``trade_url`` (если есть) лотов, которым нужна страница деталей;
         ``statuses`` — только с этими статусами."""
 
     @abstractmethod

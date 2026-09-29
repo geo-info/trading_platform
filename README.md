@@ -4,12 +4,12 @@
 [collector-framework](https://github.com/barabacker/collector-framework).
 32 площадки на четырёх движках, по файлу на площадку, результат — в MongoDB:
 
-| движок | площадок | площадки | запуск |
-|---|---|---|---|
-| iTender (fogsoft) | 16 | `tp/source/fogsoft` | `uv run start_fogsoft` |
-| Kendo-ETP | 5 | `tp/source/kendo` | `uv run start_kendo` |
-| btorg (edoc-ETP) | 6 | `tp/source/btorg` | `uv run start_btorg` |
-| rus-on | 5 | `tp/source/ruson` | `uv run start_ruson` |
+| движок | площадок | код |
+|---|---|---|
+| iTender (fogsoft) | 16 | `tp/itender` |
+| Kendo-ETP | 5 | `tp/kendo` |
+| btorg (edoc-ETP) | 6 | `tp/btorg` |
+| rus-on | 5 | `tp/ruson` |
 
 ## База
 
@@ -24,14 +24,14 @@ docker compose down -v        # остановить и стереть собр�
 `source`, ключ документа — `(source, lot_id)`. Уникальный индекс по этому
 ключу создаёт сам код при открытии хранилища, отдельной миграции нет.
 
-Документ — модель `core.lot.Lot` (перенесена из coll-temp): поля листинга,
-цена и сроки разобраны (`price`, `bidding_deadline`, `result_date` — по Москве,
-сырые строки рядом), статус сведён к одному написанию (`status_raw` — как на
-площадке), `is_active` — из статуса. Страница лота — в `extra` как есть:
-у iTender это разделы с подписями, у остальных движков — плоский словарь.
-Документы — в `attachments`, график снижения цены — в `price_schedule`.
-Хранилище добавляет `created_at`, `updated_at` и `run_id` запуска: лот,
-чей `run_id` отстал от последнего, последним обходом не увиден.
+Документ листинга — модель `core.lot.Lot`, общая для всех движков: поля
+названы как у строки листинга iTender, значения — строками, как на площадке
+(`price`, `bids_end`, `auction_date`, `status`), рядом — разобранные
+(`price_value`, `bids_end_at`, `auction_at` — по Москве, `is_active` — из
+статуса). Детали лота детальный парсер дописывает в `detail` с отметкой
+`detail_at`: у всех движков это разделы с парами «подпись: значение».
+Хранилище добавляет `created_at` и `updated_at`; `updated_at` сдвигается,
+только если лот изменился.
 
 Посмотреть собранное глазами:
 
@@ -86,39 +86,45 @@ uv run start_kendo --max-pages 2             # только площадки о�
 
 ```
 src/
-  run_all.py              запуск всех площадок; общий для скриптов движков
   core/                   общее без привязки к движку
     conf.py               настройки из окружения и .env
-    parsing.py            разбор значений: цена, дата, статус
-    lot.py                модель лота и итог его проверки
-    db/                   Store — интерфейс, MongoStore — реализация
+    help.py               разбор значений: пробелы, цена, дата
+    lot.py                Lot — общая pydantic-модель лота листинга
+    deps.py               open_run: хранилище и обход одним контекстом
+    db/                   Store — интерфейс, MongoStorage — реализация
     hooks/                сквозные обязанности (проверка inprotect)
     certs/                недостающие звенья TLS-цепочек
   tp/
-    common.py             общее для движков: настройки HTTP, параметры прогона, айтем лота
-    <движок>.py           обход движка: краулер, запросы, пагинация, айтемы
-    run_<движок>.py       запуск площадок движка (uv run start_<движок>)
-    source/<движок>/      площадки движка, по модулю на площадку
-      marking/            разметка движка, по модулю на страницу:
-        listing.py        листинг
-        trade.py          страница торгов (у fogsoft — lot.py, страница лота;
-                          там же labels.py и known_labels.py — подписи страницы)
+    common.py             общее для Kendo, btorg, rus-on: поиск по статусу
+                          GET-формой и детали со страницы торгов
+    <движок>/
+      base.py             базовый парсер: обход листинга, айтемы лотов
+      detail.py           детальный парсер: лоты, ждущие деталей, -> detail
+      source.py           площадки движка: класс, домен, настройки; PLATFORMS
+    scripts/              отладочные прогоны iTender
 tests/
-  core/ fogsoft/ kendo/ btorg/ ruson/   тесты по тем же разделам,
-                                        фикстуры — в <движок>/fixtures
+  core/ kendo/ btorg/ ruson/            тесты по разделам кода,
+                                        фикстуры — в <раздел>/fixtures
 ```
 
-Площадка — это несколько строк в `tp/source/<движок>/`:
+Площадка — это класс в `tp/<движок>/source.py`:
 
 ```python
-class Centerr(TenderFogsoft):
-    name = "centerr"
-    DOMAIN = "https://bankrupt.centerr.ru"
+class Seltim(Kendo):
+    name = 'seltim'
+    DOMAIN = 'https://bankrupt.seltim.ru'
+    settings = Settings(...)
+    params = SearchParams(statuses = ACTIVE, max_pages = conf.parsing.max_pages)
 ```
 
-Окно `--since` работает по сроку приёма заявок из листинга. На btorg его нет —
-только начало приёма, — и там окно не действует: остановка по началу теряла
-бы торги, начатые раньше окна и ещё идущие.
+Детальный парсер площадки — `detail_of(Seltim)` из `tp/<движок>/detail.py`:
+какие лоты обходить (новые и изменившиеся после деталей), решает база.
+
+У Kendo, btorg и rus-on листинг перечисляет торги, а лоты — только на
+странице торгов, поэтому базовый парсер ищет по статусам (`statuses`,
+названия через запятую, по умолчанию актуальные) и заходит в каждые торги.
+Детали лота берутся со страницы торгов (`trade_url` лота): один запрос на
+торги отдаёт детали всех её лотов.
 
 ## Разработка
 

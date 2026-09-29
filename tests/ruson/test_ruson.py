@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
-from collector import CrawlerContext, Request, Response
+from collector import CrawlerContext
 from parsel import Selector
 
-from tp.source.ruson.marking.listing import header, parse_listing
-from tp.source.ruson.nistp import Nistp
-from tp.source.ruson.sistematorg import Sistematorg
+from tests.helpers import run
+from tp.ruson.base import header, parse_listing
+from tp.ruson.detail import parse_detail
+from tp.ruson.source import PLATFORMS, Nistp, Sistematorg
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NISTP = (FIXTURES / "listing_nistp.html").read_text(encoding="utf-8")
@@ -25,18 +25,17 @@ def crawler(**params: Any) -> Nistp:
     return Nistp(CrawlerContext(http=None, params=params))
 
 
-async def run(method: Any, html: str, url: str, **metadata: Any) -> list[Any]:
-    page = Response(
-        SimpleNamespace(status_code=200, text=html), Request(url=url, metadata=metadata), method.__self__
-    )
-    return [out async for out in method(page)]
+def test_площадки_и_путь_листинга() -> None:
+    assert len(PLATFORMS) == 5
+    assert Sistematorg.start_urls == ["https://sistematorg.com/tradelist.php"]
+    assert URL == "https://nistp.ru/bankrot/trade_list.php"
 
 
 def test_колонки_по_заголовку_без_строки_поиска() -> None:
-    """Над таблицей rus_on — строка поиска со своим <th>; в coll-temp номера колонок съезжали."""
+    """Над таблицей rus_on — строка поиска со своим <th>: номера колонок не должны съезжать."""
     assert header(Selector(RUS_ON))[0] == "номер торгов"
     first = parse_listing(Selector(RUS_ON))[0]
-    assert (first["trade_id"], first["organizer"], first["bidding_date"]) == (
+    assert (first["trade_id"], first["organizer"], first["bids_end"]) == (
         "14403",
         "Третьякова Галина Анатольевна",
         "11.10.2026 12:00",
@@ -47,46 +46,38 @@ def test_листинг_nistp() -> None:
     trades = parse_listing(Selector(NISTP))
     assert len(trades) == len({t["trade_nid"] for t in trades}) == 20
     first = trades[0]
-    assert (first["trade_id"], first["trade_number"], first["detail_url"]) == (
-        "70700",
-        "70700-ОТПП",
-        TRADE_URL,
-    )
-    assert (first["status"], first["bidding_date"]) == ("Прием заявок", "04.11.2026 10:00")
+    assert (first["trade_id"], first["trade_number"], first["trade_url"]) == ("70700", "70700-ОТПП", TRADE_URL)
+    assert (first["status"], first["bids_end"]) == ("Прием заявок", "04.11.2026 10:00")
 
 
-async def test_следующая_страница_это_get_pagenum() -> None:
-    requests = await run(crawler().parse, NISTP, URL)
-    (pager,) = [r for r in requests if "trade" not in r.metadata]
-    assert (pager.url, pager.metadata) == (f"{URL}?pagenum=2", {"page": 2})
-    assert pager.method == "GET"
-
-
-async def test_окно_по_дате_по_сроку_из_листинга() -> None:
-    # Самый поздний срок на странице — в 2027 году: окно с 2028-го её закрывает.
-    assert not [
-        r for r in await run(crawler(since="2028-01-01").parse, NISTP, URL) if "trade" not in r.metadata
-    ]
-
-
-def test_путь_листинга_площадки() -> None:
-    assert Sistematorg.start_urls == ["https://sistematorg.com/tradelist.php"]
+async def test_следующая_страница_это_pagenum() -> None:
+    c = crawler()
+    await run(c.parse, NISTP, URL)
+    out = await run(c.search_page, NISTP, URL, search=0, page=1)
+    (pager,) = [r for r in out if "trade" not in r.metadata]
+    assert pager.metadata == {"search": 0, "page": 2} and pager.method == "GET"
+    assert [value for name, value in pager.params if name == "pagenum"] == ["2"]
 
 
 async def test_лоты_торгов() -> None:
     trade = parse_listing(Selector(NISTP))[0]
     lots = await run(crawler().parse_trade, TRADE, TRADE_URL, trade=trade)
-    assert [lot["lot_id"] for lot in lots] == [
-        "70700_1",
-        "70700_4",
-        "70700_7",
-    ]  # номера лотов на площадке такие
+    # Номера лотов на площадке такие.
+    assert [lot["lot_id"] for lot in lots] == ["70700_1", "70700_4", "70700_7"]
     lot = lots[0]
-    assert (lot["price"], lot["status"], lot["status_raw"]) == (21434427.98, "Приём заявок", "Прием заявок")
+    assert (lot["price_value"], lot["status"], lot["is_active"]) == (21434427.98, "Прием заявок", True)
     assert (lot["organizer"], lot["debtor"]) == ("Александров Игорь Олегович", "Вейс Андрей Эдгарович")
     assert lot["description"] == "Земельные участки в количестве 10 единиц"
-    assert lot["bidding_date_raw"] == "04.11.2026 10:00:00"
-    # Дата торгов — не начало приёма заявок, как клал coll-temp; у публичного
-    # предложения её нет вовсе.
-    assert lot["result_date"] is None
-    assert lot["url"] == TRADE_URL and lot["validation"]["ok"] is True
+    assert lot["bids_end"] == "04.11.2026 10:00:00"
+    # У публичного предложения даты торгов нет вовсе.
+    assert lot["auction_at"] is None
+    assert lot["lot_url"] == lot["trade_url"] == TRADE_URL
+
+
+def test_детали_лота() -> None:
+    details = parse_detail(Selector(TRADE), ["70700_1", "70700_4", "70700_2"])
+    assert list(details) == ["70700_1", "70700_4"]
+    detail = details["70700_1"]
+    assert detail["Лот"]["Наименование имущества"] == "Земельные участки в количестве 10 единиц"
+    assert detail["Должник"]["Фамилия"] == "Вейс"
+    assert "Организатор" in detail
