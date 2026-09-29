@@ -27,9 +27,9 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from core.conf import conf
 from core.db.base import KEY_FIELDS, Store, key_of
 from core.db.mongo.client import create_client
-from core.conf import conf
 
 
 class MongoStorage(Store):
@@ -113,7 +113,9 @@ class MongoStorage(Store):
         }
         if statuses:
             query["status"] = {"$in": statuses}
-        projection = {"_id": 0, "lot_id": 1, "lot_url": 1}
+        # trade_url — адрес страницы торгов: у kendo, btorg и rus-on детали
+        # берутся с неё. У лотов iTender поля нет — в выдаче его просто не будет.
+        projection = {"_id": 0, "lot_id": 1, "lot_url": 1, "trade_url": 1}
         return self.collection.find(query, projection).sort("created_at", -1).limit(limit)
 
     async def save_detail(self, lot_id: str, detail: Mapping[str, Any], at: datetime) -> None:
