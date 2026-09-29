@@ -122,7 +122,6 @@ src/
       source.py             площадки движка
     platforms.py            импорт всех площадок — заполняет реестр
     scripts/                crawl, detail и общее для них
-  delete/                   прежние парсеры и скрипты — справочник, удалится
 tests/
   conftest.py               офлайн-ответы краулеру, хранилище на Mongo
   core/ itender/ kendo/ btorg/ ruson/ scripts/   тесты по разделам, фикстуры — в <движок>/fixtures
