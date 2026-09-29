@@ -60,7 +60,7 @@ async def open_run(
         logger.info("[%s] %s", crawler.name, message)
 
     async with (
-        MongoStorage(source=crawler.name, collection=collection) as storage,
+        MongoStorage(source=crawler.name, collection=crawler.name) as storage,
         # Хранилище — и парсеру (ctx.sink): детальный берёт из него, какие лоты обходить.
         open_crawl(crawler, params=params, sink=storage, log=log) as crawl,
     ):
