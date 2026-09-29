@@ -114,13 +114,16 @@ def parse_listing(page: Selector) -> list[dict[str, Any]]:
 
 
 def find_next_page(page: Selector, num_page: int) -> int | None:
-    """Следующий номер из пейджера ``pagenum_send(N)``; ``None`` — страница последняя."""
-    numbers = (
-        page.xpath('//ul[contains(@class, "pagination")]//a/@onclick[contains(., "pagenum_send(")]')
-        .xpath('substring-before(substring-after(., "pagenum_send("), ")")')
-        .getall()
-    )
-    later = [int(n) for n in numbers if n.isdigit() and int(n) > num_page]
+    """Следующий номер из пейджера ``pagenum_send(N)``; ``None`` — страница последняя.
+
+    Номер — регуляркой по значению ``onclick``: XPath поверх выбранного
+    атрибута parsel молча возвращает пустоту, и пейджер «кончался» на первой
+    странице (так было в прежнем парсере).
+    """
+    numbers = page.xpath(
+        '//ul[contains(@class, "pagination")]//a[contains(@onclick, "pagenum_send(")]/@onclick'
+    ).re(r"pagenum_send\((\d+)\)")
+    later = [int(n) for n in numbers if int(n) > num_page]
     return min(later) if later else None
 
 
