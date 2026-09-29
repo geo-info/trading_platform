@@ -30,6 +30,7 @@ def test_digits_ведущие_цифры() -> None:
         ("https://x.ru", "/"),
         ("list.html?page=3", "list.html?page=3"),
         ("/lots?page=4", "/lots?page=4"),
+        ("?page=2", "?page=2"),
     ],
 )
 def test_local_href_отрезает_схему_и_хост(href: str, expected: str) -> None:

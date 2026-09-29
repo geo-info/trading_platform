@@ -8,8 +8,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 from collections.abc import AsyncIterable, AsyncIterator
+from datetime import UTC, datetime, timedelta, tzinfo
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -21,6 +23,7 @@ from parsel import Selector
 from pymongo import AsyncMongoClient
 from pymongo.errors import PyMongoError
 
+import core.db.mongo.storage as storage_module
 from core.db.mongo.storage import MongoStorage
 
 TESTS = Path(__file__).parent
@@ -62,26 +65,76 @@ class Sink:
             yield lot
 
 
+class Clock:
+    """Детерминированные часы: каждый вызов ``now()`` на 10 мс позже предыдущего.
+
+    Mongo хранит время с точностью до миллисекунды; две записи подряд на быстрой
+    машине попадают в одну и ту же миллисекунду, и сравнения «позже/раньше» мигают.
+    """
+
+    STEP = timedelta(milliseconds=10)
+
+    def __init__(self) -> None:
+        self._last = datetime.now(UTC)
+
+    def now(self) -> datetime:
+        self._last += self.STEP
+        return self._last
+
+
 @pytest.fixture
-async def storage() -> AsyncIterator[MongoStorage]:
+def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
+    """Часы для хранилища и тестов: ``datetime.now`` в ``core.db.mongo.storage`` идёт через них."""
+    c = Clock()
+
+    class FakeDatetime(datetime):
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> datetime:
+            return c.now()
+
+    monkeypatch.setattr(storage_module, "datetime", FakeDatetime)
+    return c
+
+
+_MONGO_ERROR: str | None = None  # причина недоступности Mongo: пинг ждём только один раз за сессию
+
+
+def _mongo_required() -> bool:
+    return os.environ.get("REQUIRE_MONGO", "").strip().lower() in {"1", "true", "yes"}
+
+
+def _unavailable(reason: str) -> None:
+    if _mongo_required():
+        pytest.fail(reason)
+    pytest.skip(reason)
+
+
+@pytest.fixture
+async def storage(clock: Clock) -> AsyncIterator[MongoStorage]:
     """``MongoStorage`` площадки ``bep`` во временной коллекции базы ``trading_test``.
 
-    Без Mongo — skip; в CI (``REQUIRE_MONGO=1``) — ошибка, чтобы тесты
-    хранилища не выпадали из прогона молча.
+    Время записей задают ``clock``-часы. Без Mongo — skip; в CI
+    (``REQUIRE_MONGO=1``) — ошибка, чтобы тесты хранилища не выпадали из прогона молча.
     """
+    global _MONGO_ERROR
+    if _MONGO_ERROR is not None:
+        _unavailable(_MONGO_ERROR)
     client = AsyncMongoClient(
         os.environ.get("MONGO_URI", "mongodb://localhost:27017"), serverSelectionTimeoutMS=2000
     )
     try:
-        await client.admin.command("ping")
-    except PyMongoError as exc:
+        try:
+            await client.admin.command("ping")
+        except PyMongoError as exc:
+            _MONGO_ERROR = f"Mongo недоступна: {exc}"
+            _unavailable(_MONGO_ERROR)
+        s = MongoStorage("bep", client=client, db_name="trading_test", collection=f"test_{uuid4().hex[:8]}")
+        await s.__aenter__()
+        try:
+            yield s
+        finally:
+            with contextlib.suppress(PyMongoError):
+                await s.collection.drop()
+            await s.close()
+    finally:
         await client.close()
-        if os.environ.get("REQUIRE_MONGO"):
-            pytest.fail(f"Mongo недоступна: {exc}")
-        pytest.skip(f"Mongo недоступна: {exc}")
-    s = MongoStorage("bep", client=client, db_name="trading_test", collection=f"test_{uuid4().hex[:8]}")
-    await s.__aenter__()
-    yield s
-    await s.collection.drop()
-    await s.close()
-    await client.close()

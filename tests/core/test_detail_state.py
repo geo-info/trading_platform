@@ -7,11 +7,14 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import pytest
 
 from core.db.mongo.storage import MongoStorage
+
+if TYPE_CHECKING:
+    from tests.conftest import Clock
 
 pytestmark = pytest.mark.mongo
 
@@ -27,38 +30,40 @@ async def test_новый_лот_ждёт_деталей(storage: MongoStorage) 
     assert await pending(storage) == ["1"]
 
 
-async def test_после_деталей_лот_не_ждёт(storage: MongoStorage) -> None:
+async def test_после_деталей_лот_не_ждёт(storage: MongoStorage, clock: Clock) -> None:
     await storage.upsert(LOT)
-    await storage.save_detail("1", {"Описание": "дом"}, datetime.now(UTC))
+    await storage.save_detail("1", {"Описание": "дом"}, clock.now())
     assert await pending(storage) == []
 
 
-async def test_тот_же_лот_в_листинге_не_будит_детали(storage: MongoStorage) -> None:
+async def test_тот_же_лот_в_листинге_не_будит_детали(storage: MongoStorage, clock: Clock) -> None:
     await storage.upsert(LOT)
-    await storage.save_detail("1", {"Описание": "дом"}, datetime.now(UTC))
+    await storage.save_detail("1", {"Описание": "дом"}, clock.now())
     await storage.upsert(LOT)
     assert await pending(storage) == []
 
 
-async def test_сменился_статус_детали_перечитываются(storage: MongoStorage) -> None:
+async def test_сменился_статус_детали_перечитываются(storage: MongoStorage, clock: Clock) -> None:
     await storage.upsert(LOT)
-    await storage.save_detail("1", {"Описание": "дом"}, datetime.now(UTC))
+    await storage.save_detail("1", {"Описание": "дом"}, clock.now())
     await storage.upsert({**LOT, "status": "Идут торги"})
     assert await pending(storage) == ["1"]
 
 
-async def test_изменение_во_время_запроса_не_теряется(storage: MongoStorage) -> None:
+async def test_изменение_во_время_запроса_не_теряется(storage: MongoStorage, clock: Clock) -> None:
     await storage.upsert(LOT)
-    requested = datetime.now(UTC) - timedelta(seconds=1)  # страницу запросили до смены статуса
+    requested = clock.now()  # страницу запросили до смены статуса
     await storage.upsert({**LOT, "status": "Идут торги"})
     await storage.save_detail("1", {"Описание": "дом"}, requested)
     assert await pending(storage) == ["1"]
 
 
-async def test_детали_не_трогают_updated_at_и_не_затираются_листингом(storage: MongoStorage) -> None:
+async def test_детали_не_трогают_updated_at_и_не_затираются_листингом(
+    storage: MongoStorage, clock: Clock
+) -> None:
     await storage.upsert(LOT)
     before = (await storage.collection.find_one({"lot_id": "1"}))["updated_at"]
-    await storage.save_detail("1", {"Описание": "дом"}, datetime.now(UTC))
+    await storage.save_detail("1", {"Описание": "дом"}, clock.now())
     await storage.upsert(LOT)
     doc = await storage.collection.find_one({"lot_id": "1"})
     assert doc["updated_at"] == before

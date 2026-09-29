@@ -5,12 +5,16 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC
+from typing import TYPE_CHECKING
 
 import pytest
 from pymongo.errors import DuplicateKeyError
 
 from core.db.mongo.storage import MongoStorage
+
+if TYPE_CHECKING:
+    from tests.conftest import Clock
 
 pytestmark = pytest.mark.mongo
 
@@ -64,29 +68,29 @@ async def test_pending_detail_limit(storage: MongoStorage) -> None:
     assert len([lot async for lot in storage.pending_detail(limit=2)]) == 2
 
 
-async def test_save_detail_пишет_детали_и_время(storage: MongoStorage) -> None:
+async def test_save_detail_пишет_детали_и_время(storage: MongoStorage, clock: Clock) -> None:
     await storage.upsert(LOT)
-    at = datetime.now(UTC)
+    at = clock.now()
     await storage.save_detail("1", {"Описание": "дом"}, at)
     d = await doc(storage)
     assert d["detail"] == {"Описание": "дом"}
     assert abs((d["detail_at"].replace(tzinfo=UTC) - at).total_seconds()) < 0.01
 
 
-async def test_save_detail_none_только_время_детали_целы(storage: MongoStorage) -> None:
+async def test_save_detail_none_только_время_детали_целы(storage: MongoStorage, clock: Clock) -> None:
     """Лот сняли с торгов: страницу смотрели, лота нет — прежние детали остаются."""
     await storage.upsert(LOT)
-    await storage.save_detail("1", {"Описание": "дом"}, datetime.now(UTC))
+    await storage.save_detail("1", {"Описание": "дом"}, clock.now())
     await storage.upsert({**LOT, "status": "Идут торги"})
     assert [lot["lot_id"] async for lot in storage.pending_detail()] == ["1"]
-    await storage.save_detail("1", None, datetime.now(UTC))
+    await storage.save_detail("1", None, clock.now())
     assert (await doc(storage))["detail"] == {"Описание": "дом"}
     assert [lot async for lot in storage.pending_detail()] == []
 
 
-async def test_save_detail_none_без_прежних_деталей(storage: MongoStorage) -> None:
+async def test_save_detail_none_без_прежних_деталей(storage: MongoStorage, clock: Clock) -> None:
     await storage.upsert(LOT)
-    await storage.save_detail("1", None, datetime.now(UTC))
+    await storage.save_detail("1", None, clock.now())
     d = await doc(storage)
     assert "detail" not in d
     assert "detail_at" in d

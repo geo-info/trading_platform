@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 import core.registry as registry
+import tp.platforms  # noqa: F401  # заполняет реестр при сборке тестов
 from core.registry import platforms, register
 from tp.btorg.base import Btorg
 from tp.itender.base import ITender
@@ -22,8 +23,6 @@ def isolated(monkeypatch: pytest.MonkeyPatch) -> dict:
 
 
 def test_все_площадки_всех_движков() -> None:
-    import tp.platforms  # noqa: F401 — заполняет реестр
-
     assert len(platforms()) == 32
     assert {engine.__name__: len(platforms(engine)) for engine in (ITender, Kendo, Btorg, Ruson)} == {
         "ITender": 16,
