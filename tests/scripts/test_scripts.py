@@ -67,6 +67,17 @@ def test_код_выхода(capsys: pytest.CaptureFixture[str]) -> None:
     assert "упали: b" in out
 
 
+def test_ошибки_без_результата_это_падение(capsys: pytest.CaptureFixture[str]) -> None:
+    """Площадка недоступна или переехала: 0 лотов и ошибка — не «успех»."""
+    assert Result("a", errors=1, reason="done").failed
+    assert not Result("a", done=5, errors=1).failed
+    assert not Result("a", reason="done").failed
+    assert report([Result("a", done=2), Result("b", errors=1, reason="done")], "лотов", "новых") == 1
+    out = capsys.readouterr().out
+    assert "упали: b" in out
+    assert "ничего не получено, ошибок 1" in out
+
+
 def test_list(capsys: pytest.CaptureFixture[str]) -> None:
     assert crawl.main(["--list"]) == 0
     assert "kendo: trade_alliance" in capsys.readouterr().out

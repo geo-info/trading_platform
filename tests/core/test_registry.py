@@ -26,8 +26,8 @@ def test_все_площадки_всех_движков() -> None:
     assert len(platforms()) == 32
     assert {engine.__name__: len(platforms(engine)) for engine in (ITender, Kendo, Btorg, Ruson)} == {
         "ITender": 16,
-        "Kendo": 5,
-        "Btorg": 6,
+        "Kendo": 7,
+        "Btorg": 4,
         "Ruson": 5,
     }
 

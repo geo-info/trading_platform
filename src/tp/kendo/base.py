@@ -102,11 +102,20 @@ def debtor_of(title: str | None) -> str | None:
     return parts[1].strip() if len(parts) == 2 else None
 
 
+#: Цена лота в обоих шаблонах блока.
+PRICE = './/span[contains(@class, "fs36")] | .//*[contains(@class, "lot-price-block")]/*[contains(@class, "fs24")]'
+
+
 def parse_lots(page: Selector, trade: dict[str, Any]) -> list[dict[str, Any]]:
     """Лоты из ``div#lots`` -> поля ``Lot`` без ``source`` и адресов.
 
     ``lot_href`` — ссылка на страницу лота как в разметке; сроки и организатор —
     со страницы торгов, срок из карточки листинга — запасной.
+
+    Шаблонов блока лота два: номер в ``span.normal.black-text`` и цена в
+    ``span.fs36`` (trade-alliance) или номер в ``span.normal`` и цена в
+    ``div.fs24`` блока ``lot-price-block`` (ptp-center). Номер поэтому ищется по
+    подписи «Номер лота», а не по классу.
     """
     main = parse_main_info(page)
     shared = {
@@ -121,7 +130,11 @@ def parse_lots(page: Selector, trade: dict[str, Any]) -> list[dict[str, Any]]:
     lots = []
     for block in page.xpath('//div[@id="lots"]//*[contains(@class, "block-lot")]'):
         link = block.xpath('.//a[contains(@href, "/lots/")][1]')
-        lot_num = clean(block.xpath('.//span[contains(@class, "black-text")]/text()').get())
+        lot_num = clean(
+            block.xpath(
+                './/*[contains(normalize-space(text()), "Номер лота")]//span[contains(@class, "normal")][1]/text()'
+            ).get()
+        )
         if not lot_num:
             continue
         lots.append(
@@ -131,7 +144,7 @@ def parse_lots(page: Selector, trade: dict[str, Any]) -> list[dict[str, Any]]:
                 "lot_num": lot_num,
                 "lot_href": link.xpath("./@href").get(),
                 "description": clean(link.xpath("string(.)").get()),
-                "price": clean(block.xpath('string(.//span[contains(@class, "fs36")])').get()),
+                "price": clean(block.xpath(f"string(({PRICE})[1])").get()),
                 "status": clean(
                     block.xpath('.//span[contains(@class, "lot-status")]/following-sibling::text()').get()
                 ),

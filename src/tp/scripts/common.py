@@ -84,6 +84,20 @@ class Result:
     failure: str = ""
     elapsed: float = 0.0
 
+    @property
+    def failed(self) -> bool:
+        """Упала — исключение или ошибки при пустом результате: площадка недоступна,
+        переехала или сменила разметку, а «0 лотов» не должно выглядеть успехом."""
+        return bool(self.failure) or (self.errors > 0 and self.done == 0 and self.new == 0)
+
+    @property
+    def why(self) -> str:
+        if self.failure:
+            return self.failure[:70]
+        if self.failed:
+            return f"ничего не получено, ошибок {self.errors} ({self.reason})"
+        return self.reason
+
 
 async def run_many(
     chosen: Sequence[type[Crawler]],
@@ -111,9 +125,8 @@ def report(results: Sequence[Result], done_title: str, new_title: str) -> int:
     """Итоговая таблица; код выхода 1, если какая-то площадка упала."""
     print(f"\n{'площадка':16} {done_title:>8} {new_title:>8} {'ошибок':>7} {'время':>8}  причина")
     for r in sorted(results, key=lambda r: -r.done):
-        why = r.failure[:70] or r.reason
-        print(f"{r.name:16} {r.done:>8} {r.new:>8} {r.errors:>7} {r.elapsed:>7.1f}с  {why}")
-    failed = [r.name for r in results if r.failure]
+        print(f"{r.name:16} {r.done:>8} {r.new:>8} {r.errors:>7} {r.elapsed:>7.1f}с  {r.why}")
+    failed = [r.name for r in results if r.failed]
     print(f"\nвсего {done_title}: {sum(r.done for r in results)}, {new_title}: {sum(r.new for r in results)}")
     print(
         f"площадок: {len(results) - len(failed)} из {len(results)}"

@@ -13,6 +13,8 @@ from tp.kendo.source import TradeAlliance, Vetp
 
 LISTING = "kendo/fixtures/listing_trade_alliance.html"
 TRADE = "kendo/fixtures/trade_10840.html"
+#: ptp-center: другой шаблон блока лота — номер в span.normal, цена в div.fs24.
+TRADE_PTP = "kendo/fixtures/trade_ptp_center_10023.html"
 
 
 def test_листинг() -> None:
@@ -55,6 +57,18 @@ def test_debtor_of() -> None:
     assert debtor_of("Лот, должника ООО Ромашка") == "ООО Ромашка"
     assert debtor_of(None) is None
     assert debtor_of("Лот без указания") is None
+
+
+def test_лоты_второго_шаблона_ptp_center() -> None:
+    lots = parse_lots(page(TRADE_PTP), {"trade_id": "10023", "trade_number": "10023–ОТПП"})
+    assert [lot["lot_num"] for lot in lots] == ["1", "2"]
+    first = lots[0]
+    assert first["lot_id"] == "10023_1"
+    assert first["lot_href"] == "https://ptp-center.ru/otpp/10023/lots/75"
+    assert first["price"] == "765 000,00"
+    assert first["status"] == "Идет прием заявок"
+    assert first["description"].startswith("1/4 доля на жилое здание")
+    assert all(lot["price"] for lot in lots)
 
 
 def test_лоты_страницы_торгов() -> None:
@@ -140,7 +154,7 @@ async def test_parse_trade_абсолютные_http_ссылки() -> None:
     request = Request(url="https://trade-alliance.ru/oaof/37", metadata={"trade": trade})
     html = (
         '<div id="lots"><div class="block-lot">'
-        '<span class="black-text">1</span>'
+        '<div>Номер лота: <nobr><span class="normal black-text">1</span></nobr></div>'
         '<a href="http://trade-alliance.ru/oaof/37/lots/1">Лот</a>'
         '<span class="fs36">100.00</span>'
         "</div></div>"

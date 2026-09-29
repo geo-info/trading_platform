@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from tp.kendo.base import Kendo
 
 
@@ -38,3 +40,25 @@ class Vetp(Kendo):
 
     name = "vetp"
     DOMAIN = "https://банкрот.вэтп.рф"
+
+
+class EtpProfit(Kendo):
+    """ЭТП Профит. Переехала с btorg на Kendo (2026-09): старый листинг
+    ``/etp/trade/list.html`` уводит на главную.
+
+    Сервер не отдаёт промежуточный сертификат «GlobalSign GCC R6 AlphaSSL CA
+    2025» — проверка TLS пока выключена. Когда сертификат появится в
+    ``core/certs/etp_profit.pem``, заменить на ``extra_ca_cert``, как у meta_invest.
+    """
+
+    name = "etp_profit"
+    DOMAIN = "https://etp-profit.ru"
+    settings = replace(Kendo.settings, skip_tls_verify=True)
+
+
+class PtpCenter(Kendo):
+    """ПТП-Центр. Переехала с btorg на Kendo (2026-09); блок лота — второй
+    шаблон (номер в ``span.normal``, цена в ``div.fs24``)."""
+
+    name = "ptp_center"
+    DOMAIN = "https://ptp-center.ru"

@@ -20,13 +20,6 @@ class Ausib(Btorg):
     DOMAIN = "https://ausib.ru"
 
 
-class EtpProfit(Btorg):
-    """ЭТП Профит. Соединения принимает через раз."""
-
-    name = "etp_profit"
-    DOMAIN = "https://etp-profit.ru"
-
-
 class Aukcioncenter(Btorg):
     """Аукционный центр."""
 
@@ -39,10 +32,3 @@ class Regtorg(Btorg):
 
     name = "regtorg"
     DOMAIN = "https://regtorg.com"
-
-
-class PtpCenter(Btorg):
-    """ПТП-Центр. Соединения принимает через раз."""
-
-    name = "ptp_center"
-    DOMAIN = "https://ptp-center.ru"
