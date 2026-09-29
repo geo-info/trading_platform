@@ -5,7 +5,8 @@ from __future__ import annotations
 from collector import Request
 
 from tests.conftest import Sink, collect, make, page, read_fixture, respond
-from tp.btorg.detail import detail_of, parse_details
+from tp.btorg.base import Btorg
+from tp.btorg.detail import BtorgDetail, detail_of, parse_details
 from tp.btorg.source import Atctrade
 
 LOTS = "btorg/fixtures/lots_13147.html"
@@ -22,6 +23,16 @@ def test_parse_details() -> None:
     assert len(detail) == 6
     assert len(schedule) == 5
     assert all("Дата окончания приема заявок" in interval for interval in schedule)
+    assert detail["Предмет торгов"] == "Транспортное средство"
+    assert detail["Классификатор имущества"] == "0106008. Автомобили"
+    assert detail["Начальная цена продажи имущества"] == "333 000,00 руб, НДС не облагается"
+    assert schedule[0] == {
+        "Дата начала приема заявок": "28.09.2026 08:00",
+        "Дата окончания приема заявок": "02.10.2026 17:00",
+        "Цена на периоде, руб.": "333 000,00",
+        "Размер задатка, руб.": "33 300,00",
+    }
+    assert schedule[-1]["Дата окончания приема заявок"] == "22.10.2026 17:00"
 
 
 async def test_start_requests_группирует_и_xhr() -> None:
@@ -46,7 +57,8 @@ async def test_parse_детали_по_номеру_лота() -> None:
     assert requests == []
     (item,) = items
     assert item["lot_id"] == "13147_1"
-    assert item["detail"] == parse_details(page(LOTS, ENC))["1"]
+    assert item["detail"]["Предмет торгов"] == "Транспортное средство"
+    assert item["detail"]["price_schedule"][-1]["Дата окончания приема заявок"] == "22.10.2026 17:00"
 
 
 async def test_пропавший_лот_detail_none() -> None:
@@ -62,9 +74,4 @@ def test_detail_of() -> None:
     assert D.name == "atctrade"
     assert D.__module__ == Atctrade.__module__
     assert D.params.limit == 100
-    assert [c.__name__ for c in D.__mro__[:4]] == [
-        "Atctrade Detail",
-        "BtorgDetail",
-        "Atctrade",
-        "Btorg",
-    ]
+    assert D.__mro__[1:4] == (BtorgDetail, Atctrade, Btorg)

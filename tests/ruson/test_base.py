@@ -41,10 +41,15 @@ def test_trade_code() -> None:
 def test_лоты_страницы_торгов() -> None:
     lots = parse_lots(_trade(), {"trade_id": "496200"})
     assert [lot["lot_num"] for lot in lots] == ["1", "4", "7"]
-    for lot in lots:
-        assert lot["price"]
-        assert lot["organizer"]
-        assert lot["debtor"]
+    lot = lots[0]
+    assert lot["lot_id"] == "496200_1"
+    assert lot["price"] == "21 434 427.98"
+    assert lot["organizer"] == "Александров Игорь Олегович"
+    assert lot["debtor"] == "Вейс Андрей Эдгарович"
+    assert lot["description"] == "Земельные участки в количестве 10 единиц"
+    assert lot["status"] == "Прием заявок"
+    assert lot["bids_end"] == "04.11.2026 10:00:00"
+    assert [x["price"] for x in lots] == ["21 434 427.98", "267 690.47", "628 176.38"]
 
 
 def test_start_urls() -> None:
@@ -67,6 +72,9 @@ async def test_parse_поток() -> None:
     assert items == []
     trade_requests = [r for r in requests if r.callback == c.parse_trade]
     assert len(trade_requests) == 19
+    assert {r.metadata["trade"]["trade_id"] for r in trade_requests} == {
+        t["trade_id"] for t in parse_listing(page(RUS_ON))
+    }
     assert all(r.url.startswith("https://") for r in requests)
     (nxt,) = [r for r in requests if r.callback != c.parse_trade]
     assert nxt.url == "https://rus-on.ru/bankrot/trade_list.php"

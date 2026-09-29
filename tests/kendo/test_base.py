@@ -28,9 +28,16 @@ def test_листинг() -> None:
     assert {t["trade_type"] for t in trades} == {"ОАОФ", "ОТПП"}
 
 
+def _card(trade_id: int) -> Selector:
+    """Карточка листинга с абсолютной http-ссылкой на торги: в фикстурах ссылки только относительные."""
+    href = f"http://trade-alliance.ru/oaof/{trade_id}"
+    return Selector(
+        f'<div class="block-lot"><div class="bold"><a href="{href}">{trade_id}-ОАОФ</a></div></div>'
+    )
+
+
 def test_номер_с_дефисом() -> None:
-    card = Selector('<div class="block-lot"><div class="bold"><a href="/oaof/37">37-ОАОФ</a></div></div>')
-    (trade,) = parse_listing(card)
+    (trade,) = parse_listing(_card(37))
     assert trade["trade_type"] == "ОАОФ"
     assert trade["trade_url"] == "/oaof/37"
 
@@ -88,7 +95,9 @@ async def test_parse_поток() -> None:
     assert all(r.url.startswith("https://") for r in requests)
     trade_requests = [r for r in requests if r.callback == c.parse_trade]
     assert len(trade_requests) == 15
-    assert all(r.metadata["trade"]["trade_id"] for r in trade_requests)
+    assert {r.metadata["trade"]["trade_id"] for r in trade_requests} == {
+        t["trade_id"] for t in parse_listing(page(LISTING))
+    }
     (nxt,) = [r for r in requests if r.callback != c.parse_trade]
     assert nxt.url == "https://trade-alliance.ru/lots?page=2"
     assert nxt.metadata == {"num_page": 2}
@@ -123,3 +132,23 @@ async def test_не_200() -> None:
         await collect(c.parse(respond(c, req, "", status=500)))
     with pytest.raises(ValueError, match="503"):
         await collect(c.parse_trade(respond(c, req, "", status=503)))
+
+
+async def test_parse_trade_абсолютные_http_ссылки() -> None:
+    c = make(TradeAlliance)
+    (trade,) = parse_listing(_card(37))
+    request = Request(url="https://trade-alliance.ru/oaof/37", metadata={"trade": trade})
+    html = (
+        '<div id="lots"><div class="block-lot">'
+        '<span class="black-text">1</span>'
+        '<a href="http://trade-alliance.ru/oaof/37/lots/1">Лот</a>'
+        '<span class="fs36">100.00</span>'
+        "</div></div>"
+    )
+
+    _, items = await collect(c.parse_trade(respond(c, request, html)))
+
+    (item,) = items
+    assert item["lot_id"] == "37_1"
+    assert item["lot_url"] == "https://trade-alliance.ru/oaof/37/lots/1"
+    assert item["trade_url"] == "https://trade-alliance.ru/oaof/37"

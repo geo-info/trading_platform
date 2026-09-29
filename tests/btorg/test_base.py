@@ -39,6 +39,13 @@ def test_пейджер() -> None:
     assert find_next_page(_listing(), 1) == (2, "/etp/trade/list.html?page=2")
 
 
+def test_пейджер_абсолютная_http_ссылка() -> None:
+    pager = Selector(
+        '<ul class="pagination"><li><a href="http://atctrade.ru/etp/trade/list.html?page=2">2</a></li></ul>'
+    )
+    assert find_next_page(pager, 1) == (2, "/etp/trade/list.html?page=2")
+
+
 def test_последняя_страница() -> None:
     assert find_next_page(_listing(), 999) is None
 
@@ -84,6 +91,9 @@ async def test_parse_поток() -> None:
     assert items == []
     trade_requests = [r for r in requests if r.callback == c.parse_trade]
     assert len(trade_requests) == 15
+    assert {r.metadata["trade"]["trade_id"] for r in trade_requests} == {
+        t["trade_id"] for t in parse_listing(_listing())
+    }
     assert all(r.headers["X-Requested-With"] == "XMLHttpRequest" for r in trade_requests)
     assert all(r.url.startswith("https://atctrade.ru/etp/trade/inner-view-lots.html") for r in trade_requests)
     (nxt,) = [r for r in requests if r.callback != c.parse_trade]

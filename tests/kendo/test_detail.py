@@ -6,7 +6,8 @@ import pytest
 from collector import Request
 
 from tests.conftest import Sink, collect, make, page, read_fixture, respond
-from tp.kendo.detail import detail_of, parse_detail
+from tp.kendo.base import Kendo
+from tp.kendo.detail import KendoDetail, detail_of, parse_detail
 from tp.kendo.source import TradeAlliance
 
 TRADE = "kendo/fixtures/trade_10840.html"
@@ -19,6 +20,14 @@ def test_parse_detail() -> None:
     assert len(detail) == 26
     assert len(attachments) == 3
     assert all(a["name"] and a["url"].startswith("http") for a in attachments)
+    assert detail["Наименование"] == "Козырев Илья Михайлович"
+    assert detail["Номер дела о банкротстве"] == "А70-2244/2026"
+    assert detail["Статус торгов"] == "идет прием заявок"
+    assert attachments[0]["name"] == "Проект договора задатка - Кезарева Д.Ю. - общий.docx"
+    assert attachments[0]["url"].startswith(
+        "https://s3-telecom.cloud.rt-dc.ru/storage/temp_files/2026/09/23/"
+    )
+    assert attachments[0]["url"].endswith("-21251.docx")
 
 
 async def test_start_requests_группирует_по_trade_url() -> None:
@@ -41,7 +50,9 @@ async def test_parse_детали_каждому_лоту() -> None:
     requests, items = await collect(d.parse(respond(d, req, read_fixture(TRADE))))
     assert requests == []
     assert [i["lot_id"] for i in items] == ["10840_1", "10840_2"]
-    assert items[0]["detail"] == items[1]["detail"] == parse_detail(page(TRADE))
+    assert items[0]["detail"] == items[1]["detail"]
+    assert items[0]["detail"]["Наименование"] == "Козырев Илья Михайлович"
+    assert items[0]["detail"]["Номер дела о банкротстве"] == "А70-2244/2026"
 
 
 async def test_страница_без_main_info_ошибка() -> None:
@@ -55,9 +66,4 @@ def test_detail_of() -> None:
     assert D.name == "trade_alliance"
     assert D.__module__ == TradeAlliance.__module__
     assert D.params.limit == 100
-    assert [c.__name__ for c in D.__mro__[:4]] == [
-        "TradeAlliance Detail",
-        "KendoDetail",
-        "TradeAlliance",
-        "Kendo",
-    ]
+    assert D.__mro__[1:4] == (KendoDetail, TradeAlliance, Kendo)
