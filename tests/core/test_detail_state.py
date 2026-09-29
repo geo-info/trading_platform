@@ -7,29 +7,15 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from pymongo.errors import PyMongoError
 
 from core.db.mongo.storage import MongoStorage
 
+pytestmark = pytest.mark.mongo
+
 LOT = {"source": "bep", "lot_id": "1", "lot_url": "https://x/lots/view/1/", "status": "Прием заявок"}
-
-
-@pytest.fixture
-async def storage() -> AsyncIterator[MongoStorage]:
-    s = MongoStorage("bep", collection="zz_test_detail")
-    try:
-        await s.collection.drop()
-        await s.__aenter__()
-    except PyMongoError:
-        await s.close()
-        pytest.skip("Mongo недоступна")
-    yield s
-    await s.collection.drop()
-    await s.close()
 
 
 async def pending(s: MongoStorage) -> list[str]:
