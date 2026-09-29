@@ -25,7 +25,9 @@ from core.db.mongo.client import create_client
 async def contents(client: Any, db_name: str) -> dict[str, int]:
     """Коллекции базы и число документов в каждой; пустой словарь — базы нет."""
     db = client[db_name]
-    return {name: await db[name].estimated_document_count() for name in sorted(await db.list_collection_names())}
+    return {
+        name: await db[name].estimated_document_count() for name in sorted(await db.list_collection_names())
+    }
 
 
 async def drop(client: Any, db_name: str, *, confirm: bool) -> int:
@@ -38,7 +40,10 @@ async def drop(client: Any, db_name: str, *, confirm: bool) -> int:
     for name, count in found.items():
         print(f"  {name:24} {count:>8}")
     print(f"  {'всего документов':24} {sum(found.values()):>8}")
-    if confirm and input(f"\nудалить базу {db_name} целиком? введите её имя для подтверждения: ").strip() != db_name:
+    if (
+        confirm
+        and input(f"\nудалить базу {db_name} целиком? введите её имя для подтверждения: ").strip() != db_name
+    ):
         print("отменено")
         return 1
     await client.drop_database(db_name)
