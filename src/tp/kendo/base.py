@@ -52,12 +52,12 @@ def parse_listing(page: Selector) -> list[dict[str, Any]]:
         if not trade_id or not trade_url or trade_id in seen:
             continue
         seen.add(trade_id)
-        parts = number.split("–")
         trades.append(
             {
                 "trade_id": trade_id,
                 "trade_number": number,
-                "trade_type": clean(parts[1]) if len(parts) == 2 else None,
+                # После цифр — тире или дефис (``is_trade_number``), за ним тип торгов.
+                "trade_type": clean(number[len(trade_id) :].lstrip()[1:]),
                 "trade_title": title,
                 "trade_url": local_href(trade_url),
                 "bids_end": clean(card.xpath('.//nobr[i[@title="Окончание приема заявок"]]/text()').get()),
@@ -193,7 +193,7 @@ class Kendo(Crawler):
             href = lot.pop("lot_href")
             yield Lot(
                 source = self.name,
-                lot_url = response.urljoin(href) if href else trade_url,
+                lot_url = response.urljoin(local_href(href)) if href else trade_url,
                 trade_url = trade_url,
                 **lot,
             ).model_dump()
