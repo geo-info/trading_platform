@@ -53,10 +53,11 @@ class RusonDetail(Ruson):
         for lot_id in response.metadata["lot_ids"]:
             # lot_id — «{trade_id}_{lot_num}», trade_id — одни цифры.
             lot_num = lot_id.partition("_")[2]
-            if lot_num in details:
-                yield {"lot_id": lot_id, "detail": details[lot_num]}
-            else:
-                await self.log(f"лота {lot_id} на странице торгов нет — детали не записаны")
+            if lot_num not in details:
+                # Лот сняли с торгов: detail=None — хранилище отметит, что
+                # страницу смотрели, и лот не будет перечитываться вечно.
+                await self.log(f"лота {lot_id} на странице торгов нет — отмечаю без деталей")
+            yield {"lot_id": lot_id, "detail": details.get(lot_num)}
 
 
 def detail_of(platform: type[Ruson]) -> type[RusonDetail]:

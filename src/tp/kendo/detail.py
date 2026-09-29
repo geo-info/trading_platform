@@ -62,6 +62,10 @@ class KendoDetail(Kendo):
         if response.status != 200:
             raise ValueError(f"{response.status} для {response.request.url}")
         detail = parse_detail(response.selector())
+        # Без #main-info это не страница торгов (заглушка, ошибка, переезд):
+        # записать её значило бы убрать лоты из очереди с пустыми деталями.
+        if detail.keys() == {"attachments"}:
+            raise ValueError(f"нет сведений о торгах (#main-info) на {response.request.url}")
         for lot_id in response.metadata["lot_ids"]:
             yield {"lot_id": lot_id, "detail": detail}
 

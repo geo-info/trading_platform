@@ -47,8 +47,11 @@ class Store(ABC):
         ``statuses`` — только с этими статусами."""
 
     @abstractmethod
-    async def save_detail(self, lot_id: str, detail: Mapping[str, Any], at: datetime) -> None:
-        """Дописать детали к лоту; ``at`` — когда страница была запрошена."""
+    async def save_detail(self, lot_id: str, detail: Mapping[str, Any] | None, at: datetime) -> None:
+        """Дописать детали к лоту; ``at`` — когда страница была запрошена.
+
+        ``detail=None`` — страницу открыли, но лота на ней нет: отметить
+        только ``at``, прежние детали не трогать."""
 
     @abstractmethod
     async def count(self) -> int:

@@ -118,16 +118,24 @@ class MongoStorage(Store):
         projection = {"_id": 0, "lot_id": 1, "lot_url": 1, "trade_url": 1}
         return self.collection.find(query, projection).sort("created_at", -1).limit(limit)
 
-    async def save_detail(self, lot_id: str, detail: Mapping[str, Any], at: datetime) -> None:
+    async def save_detail(self, lot_id: str, detail: Mapping[str, Any] | None, at: datetime) -> None:
         """Дописать детали к лоту.
 
         ``at`` — когда страница была *запрошена*, а не записана: если листинг
         обновил лот, пока шёл запрос, его ``updated_at`` окажется позже, и лот
         перечитается. ``updated_at`` не трогаем — он значит «лот изменился на
         площадке», а не «мы дописали детали».
+
+        ``detail=None`` — страница торгов открылась, но лота на ней нет (снят
+        с торгов). Ставится только ``detail_at``: иначе лот стоял бы в
+        ``pending_detail`` вечно и перечитывался каждый прогон. Прежние детали
+        остаются; изменится лот в листинге — детали запросятся снова.
         """
         key = {"source": self.source, "lot_id": lot_id}
-        await self.collection.update_one(key, {"$set": {"detail": dict(detail), "detail_at": at}})
+        fields: dict[str, Any] = {"detail_at": at}
+        if detail is not None:
+            fields["detail"] = dict(detail)
+        await self.collection.update_one(key, {"$set": fields})
 
     async def count(self) -> int:
         return await self.collection.count_documents({"source": self.source})
