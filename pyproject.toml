@@ -48,7 +48,7 @@ packages = ["src/core", "src/tp"]
 line-length = 110
 target-version = "py311"
 src = ["src"]
-extend-exclude = ["src/delete"]
+extend-exclude = ["src/delete", "docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "C4"]
