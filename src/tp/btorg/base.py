@@ -5,7 +5,8 @@
 ``inner-view-lots.html`` (с признаком XHR). Во фрагменте — по ``table.data``
 на лот (``id="lotNumberN"``) с парами «подпись — значение» и, у публичного
 предложения, вложенной таблицей интервалов снижения цены. Своей страницы у
-лота нет: его адрес — адрес фрагмента. Страницы — в windows-1251,
+лота нет: его адрес для человека — страница торгов ``general.html`` (фрагмент
+без признака XHR не отдаётся), детали берутся из фрагмента. Страницы — в windows-1251,
 перекодирует их фреймворк по заголовку ответа.
 
 Площадка наследует ``Btorg`` и задаёт ``name`` и ``DOMAIN``.
@@ -25,6 +26,9 @@ from core.lot import Lot
 
 #: AJAX-фрагмент с лотами торгов — с ценами, которых нет в листинге.
 LOTS_PATH = "/etp/trade/inner-view-lots.html"
+#: Страница торгов для человека — та, на которую ведёт строка листинга.
+#: Путь без ``/etp``: с ним площадка отвечает 500.
+TRADE_PAGE_PATH = "/trade/view/purchase/general.html"
 #: Фрагмент лотов отдаётся только на AJAX-запрос.
 XHR = {"X-Requested-With": "XMLHttpRequest"}
 
@@ -54,6 +58,7 @@ def parse_listing(page: Selector) -> list[dict[str, Any]]:
                 "debtor": clean(cells[2].xpath('.//div[contains(@style, "bold")]//text()').get()),
                 "status": clean(cells[3].xpath("string(.)").get()),
                 "trade_url": f"{LOTS_PATH}?perspective=inline&id={purchase}",
+                "page_url": f"{TRADE_PAGE_PATH}?id={purchase}",
             }
         )
     return trades
@@ -191,9 +196,10 @@ class Btorg(Crawler):
             yield response.follow(href, metadata = {"num_page": number})
 
     async def parse_trade(self, response: Response) -> Any:
-        """Фрагмент лотов торгов: по ``Lot`` на лот; адрес лота — адрес фрагмента."""
+        """Фрагмент лотов торгов: по ``Lot`` на лот; адрес лота — страница торгов."""
         if response.status != 200:
             raise ValueError(f"{response.status} для {response.request.url}")
-        trade_url = response.request.url
-        for lot in parse_lots(response.selector(), response.metadata["trade"]):
-            yield Lot(source = self.name, lot_url = trade_url, trade_url = trade_url, **lot).model_dump()
+        trade = response.metadata["trade"]
+        lot_url, trade_url = response.urljoin(trade["page_url"]), response.request.url
+        for lot in parse_lots(response.selector(), trade):
+            yield Lot(source = self.name, lot_url = lot_url, trade_url = trade_url, **lot).model_dump()
