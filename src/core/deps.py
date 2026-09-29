@@ -5,7 +5,7 @@
 как он собран; подменить его (в тесте, для другой коллекции или логов) —
 значит передать другую функцию.
 
-    async with open_run(Alfalot) as run:
+    async with open_run(Alfalot, params={"max_pages": 30}) as run:
         async for item in run.crawl.stream():
             await run.storage.upsert(item)
 """
@@ -13,9 +13,10 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
+from typing import Any
 
 from collector import Crawl, Crawler, open_crawl
 
@@ -38,12 +39,22 @@ class Run:
         return self.crawl.crawler.log
 
 
-#: По имени коллекции и классу парсера — открытый прогон.
-RunDep = Callable[[str, type[Crawler]], AbstractAsyncContextManager[Run]]
+#: По классу парсера — открытый прогон.
+RunDep = Callable[..., AbstractAsyncContextManager[Run]]
 
 
 @asynccontextmanager
-async def open_run(collection: str, crawler: type[Crawler]) -> AsyncIterator[Run]:
+async def open_run(
+    crawler: type[Crawler],
+    *,
+    params: Mapping[str, Any] | None = None,
+    collection: str | None = None,
+) -> AsyncIterator[Run]:
+    """Прогон площадки ``crawler``: её хранилище и обход.
+
+    ``params`` — параметры прогона для фреймворка (``max_pages``, ``limit``);
+    ``collection`` — куда писать, по умолчанию общая коллекция из настроек.
+    """
 
     async def log(message: str) -> None:
         logger.info("[%s] %s", crawler.name, message)
@@ -51,6 +62,6 @@ async def open_run(collection: str, crawler: type[Crawler]) -> AsyncIterator[Run
     async with (
         MongoStorage(source=crawler.name, collection=collection) as storage,
         # Хранилище — и парсеру (ctx.sink): детальный берёт из него, какие лоты обходить.
-        open_crawl(crawler, sink=storage, log=log) as crawl,
+        open_crawl(crawler, params=params, sink=storage, log=log) as crawl,
     ):
         yield Run(storage, crawl)
