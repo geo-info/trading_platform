@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from itertools import takewhile
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 #: Часовой пояс площадок. На Windows база поясов приходит пакетом tzdata.
@@ -32,6 +33,20 @@ def clean(value: str | None) -> str | None:
 def digits(text: str | None) -> str:
     """Ведущие цифры строки: «10840–ОАОФ» -> «10840»."""
     return "".join(takewhile(str.isdigit, text or ""))
+
+
+def local_href(href: str) -> str:
+    """Ссылка без схемы и хоста: «http://site.ru/lots?page=2» -> «/lots?page=2».
+
+    Пейджер площадки бывает абсолютным и с http, хотя сама она на https.
+    Переход по такой ссылке менял бы схему у всех адресов дальше по обходу, и
+    один и тот же лот приходил бы то с http-, то с https-адресом торгов.
+    Относительная ссылка разрешается от текущей страницы — схема остаётся её.
+    """
+    parts = urlsplit(href)
+    if not parts.scheme and not parts.netloc:
+        return href
+    return f"{parts.path or '/'}?{parts.query}" if parts.query else parts.path or "/"
 
 
 def parse_price(value: str | None) -> float | None:

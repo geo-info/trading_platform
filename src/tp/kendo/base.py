@@ -19,7 +19,7 @@ from collector import Crawler, Response, Settings
 from parsel import Selector
 
 from core.conf import conf
-from core.help import clean, digits
+from core.help import clean, digits, local_href
 from core.lot import Lot
 
 
@@ -59,7 +59,7 @@ def parse_listing(page: Selector) -> list[dict[str, Any]]:
                 "trade_number": number,
                 "trade_type": clean(parts[1]) if len(parts) == 2 else None,
                 "trade_title": title,
-                "trade_url": trade_url,
+                "trade_url": local_href(trade_url),
                 "bids_end": clean(card.xpath('.//nobr[i[@title="Окончание приема заявок"]]/text()').get()),
             }
         )
@@ -70,13 +70,14 @@ def find_next_page(page: Selector, num_page: int) -> tuple[int, str] | None:
     """Номер и ссылка ближайшей следующей страницы пейджера; ``None`` — страница последняя.
 
     Берётся ссылка самого пейджера, а не собранный адрес: в ней уже все
-    параметры листинга, которые площадка сочла нужными.
+    параметры листинга, которые площадка сочла нужными. Схема и хост
+    отрезаются (``local_href``): пейджер у части площадок ссылается на http.
     """
     later = []
     for href in page.xpath('//ul[contains(@class, "pagination")]//a[contains(@href, "page=")]/@href').getall():
         n = digits(href.split("page=", 1)[1])
         if n and int(n) > num_page:
-            later.append((int(n), href))
+            later.append((int(n), local_href(href)))
     return min(later) if later else None
 
 
