@@ -9,7 +9,7 @@ from parsel import Selector
 from core.help import parse_datetime
 from tests.conftest import Sink, collect, make, page, read_fixture, respond
 from tp.ruson.base import Ruson
-from tp.ruson.detail import RusonDetail, detail_of, parse_details
+from tp.ruson.detail import RusonDetail, detail_of, parse_details, trade_type_of
 from tp.ruson.source import Nistp
 
 TRADE = "ruson/fixtures/trade_496200.html"
@@ -20,8 +20,9 @@ URL = "https://nistp.ru/bankrot/trade_view.php?trade_nid=496200"
 def test_parse_details() -> None:
     details = parse_details(page(TRADE))
     assert set(details) == {"1", "4", "7"}
-    # 11 пар своей таблицы лота + график; строки вложенной таблицы интервалов — не пары.
-    assert all(len(pairs) == 12 for pairs in details.values())
+    # Тип торгов + 11 пар своей таблицы лота + график; строки вложенной таблицы интервалов — не пары.
+    assert all(len(pairs) == 13 for pairs in details.values())
+    assert all(pairs["Тип торгов"] == "Публичное предложение" for pairs in details.values())
     assert details["1"]["Номер лота"] == "1"
     assert details["1"]["Наименование имущества"] == "Земельные участки в количестве 10 единиц"
     assert details["1"]["Начальная цена"] == "21 434 427.98"
@@ -29,6 +30,24 @@ def test_parse_details() -> None:
     assert details["7"]["Местонахождение имущества"] == "Самарская область, сельское поселение Красный Яр"
     assert details["7"]["Начальная цена"] == "628 176.38"
     assert details["4"]["Начальная цена"] == "267 690.47"
+
+
+def test_тип_торгов_из_шапки() -> None:
+    assert trade_type_of(page(TRADE)) == "Публичное предложение"
+
+
+def test_тип_торгов_подпись_целиком() -> None:
+    """Подпись с двоеточием — та же; «Тип торгов по составу участников» — другое поле."""
+    html = (
+        "<table><tr><td>Тип торгов по составу участников</td><td>Открытые</td></tr>"
+        "<tr><td class='label'>Тип торгов:</td><td> Открытый  аукцион </td></tr></table>"
+    )
+    assert trade_type_of(Selector(text=html)) == "Открытый аукцион"
+
+
+def test_без_типа_торгов_ключа_нет() -> None:
+    html = "<table><tr><th colspan=2>Лот № 1</th></tr><tr><td>Начальная цена</td><td>100</td></tr></table>"
+    assert parse_details(Selector(text=html)) == {"1": {"Начальная цена": "100", "price_schedule": []}}
 
 
 def test_строки_графика_не_попадают_в_пары() -> None:

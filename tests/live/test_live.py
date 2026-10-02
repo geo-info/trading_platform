@@ -43,3 +43,16 @@ async def test_площадка_живая(name: str) -> None:
         details = [item async for item in crawl.stream()]
     assert crawl.stats.errors == 0
     assert details and details[0]["detail"], f"{name}: детали пустые"
+
+
+@pytest.mark.parametrize("name", ["el_torg", "nistp"])
+async def test_rus_on_тип_торгов_в_деталях(name: str) -> None:
+    """У el_torg кода типа в номере торгов нет — тип только в шапке страницы торгов."""
+    platform = platforms()[name]
+    async with open_crawl(platform, params={"max_pages": 1}) as crawl:
+        lots = [item async for item in crawl.stream()]
+    assert lots, f"{name}: листинг не дал ни одного лота ({crawl.stats.reason})"
+    async with open_crawl(ruson_detail(platform), params={"limit": 3}, sink=Sink(lots)) as crawl:
+        details = [item async for item in crawl.stream()]
+    assert crawl.stats.errors == 0
+    assert all(d["detail"].get("Тип торгов") for d in details if d["detail"]), details

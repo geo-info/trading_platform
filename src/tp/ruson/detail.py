@@ -1,8 +1,9 @@
-"""Детальный парсер rus-on: страница торгов -> пары таблицы лота.
+"""Детальный парсер rus-on: страница торгов -> пары таблицы лота и тип торгов.
 
 Какие лоты обходить, решает база (``MongoStorage.pending_detail``). Детали —
 на странице торгов, по таблице «Лот № N» на лот. Страница запрашивается один
-раз на торги, каждый ожидающий лот получает свою таблицу.
+раз на торги, каждый ожидающий лот получает свою таблицу и общий для торгов
+«Тип торгов» из шапки страницы.
 
 Как и у iTender, детальный парсер — примесь к классу площадки: ``detail_of(Nistp)``.
 """
@@ -17,13 +18,33 @@ from typing import Any
 from collector import Request, Response
 from parsel import Selector
 
+from core.help import clean
 from tp.ruson.base import Ruson, lot_pairs, lot_tables, parse_schedule
+
+#: Подпись строки шапки торгов с полным типом торгов — она же ключ в ``detail``.
+TRADE_TYPE = "Тип торгов"
+
+
+def trade_type_of(page: Selector) -> str | None:
+    """«Тип торгов» из шапки страницы торгов: «Публичное предложение», «Открытый аукцион»…
+
+    Подпись сравнивается целиком, а не по вхождению: строки вроде «Тип торгов по
+    составу участников» — другое поле. В листинге тип есть только суффиксом
+    номера торгов («КТПП»), а у el_torg нет и его.
+    """
+    return clean(
+        page.xpath(f'//tr[normalize-space(translate(td[1], ":", ""))="{TRADE_TYPE}"]/td[2]')
+        .xpath("string(.)")
+        .get()
+    )
 
 
 def parse_details(page: Selector) -> dict[str, dict[str, Any]]:
-    """Детали каждого лота страницы торгов: номер лота -> пары его таблицы и ``price_schedule``."""
+    """Детали каждого лота страницы торгов: номер лота -> «Тип торгов», пары его таблицы и
+    ``price_schedule``. Строка таблицы лота с той же подписью важнее шапки."""
+    shared = {TRADE_TYPE: trade_type} if (trade_type := trade_type_of(page)) else {}
     return {
-        lot_num: {**lot_pairs(table), "price_schedule": parse_schedule(table)}
+        lot_num: {**shared, **lot_pairs(table), "price_schedule": parse_schedule(table)}
         for lot_num, _, table in lot_tables(page)
     }
 
