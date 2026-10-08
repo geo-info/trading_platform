@@ -14,6 +14,7 @@ from parsel import Selector
 
 from core.help import clean
 from core.registry import register
+from core.trade_type import normalize_trade_type
 
 
 def parse_rows(page: Selector) -> list[dict[str, Any]]:
@@ -43,7 +44,9 @@ def parse_rows(page: Selector) -> list[dict[str, Any]]:
                 "auction_date": clean(cells[7].xpath("string(.)").get()),
                 "status": clean(cells[8].xpath("string(.)").get()),
                 "winner": clean(cells[9].xpath("string(.)").get()),
-                "trade_type": clean(cells[10].xpath("string(.)").get()),
+                **normalize_trade_type(
+                    clean(cells[10].xpath("string(.)").get()), source="listing:Тип торгов"
+                ),
             }
         )
     return rows

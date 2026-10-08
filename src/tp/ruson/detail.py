@@ -17,13 +17,17 @@ from typing import Any
 from collector import Request, Response
 from parsel import Selector
 
-from tp.ruson.base import Ruson, lot_pairs, lot_tables, parse_schedule
+from tp.ruson.base import Ruson, field, lot_pairs, lot_tables, parse_schedule
 
 
 def parse_details(page: Selector) -> dict[str, dict[str, Any]]:
     """Детали каждого лота страницы торгов: номер лота -> пары его таблицы и ``price_schedule``."""
     return {
-        lot_num: {**lot_pairs(table), "price_schedule": parse_schedule(table)}
+        lot_num: {
+            **lot_pairs(table),
+            **({"Тип торгов": field(page, "Тип торгов")} if field(page, "Тип торгов") else {}),
+            "price_schedule": parse_schedule(table),
+        }
         for lot_num, _, table in lot_tables(page)
     }
 

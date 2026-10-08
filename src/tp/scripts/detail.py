@@ -20,7 +20,7 @@ from collector import Crawler
 from core.deps import open_run
 from tp.scripts.common import Result, detail_of, parser, print_list, report, run_many, select, setup
 
-LIMIT = 100
+LIMIT = 1000
 
 
 async def fetch_details(platform: type[Crawler], limit: int) -> Result:
@@ -66,4 +66,5 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+
     raise SystemExit(main())

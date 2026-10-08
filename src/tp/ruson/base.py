@@ -26,6 +26,7 @@ from core.conf import conf
 from core.help import clean, digits, local_href
 from core.lot import Lot
 from core.registry import register
+from core.trade_type import normalize_trade_type, number_type, resolve_trade_type
 
 #: Заголовки колонок листинга — части слов, в разных написаниях площадок.
 COLUMNS = {
@@ -99,7 +100,7 @@ def parse_listing(page: Selector) -> list[dict[str, Any]]:
             {
                 "trade_id": digits(code) if code else nid,
                 "trade_number": code,
-                "trade_type": code.split("-")[1] if code else None,
+                **normalize_trade_type(number_type(code), source="listing:number"),
                 # onclick без href: ссылка относительно листинга — там же, где он.
                 "trade_url": local_href(href) if href else f"{TRADE_VIEW}{nid}",
                 "status": text("status"),
@@ -223,7 +224,7 @@ def parse_lots(page: Selector, trade: dict[str, Any]) -> list[dict[str, Any]]:
     shared = {
         "trade_id": trade["trade_id"],
         "trade_number": trade.get("trade_number"),
-        "trade_type": trade.get("trade_type"),
+        **resolve_trade_type({"Тип торгов": field(page, "Тип торгов")}, trade),
         "status": field(page, "Статус торгов") or trade.get("status"),
         "bids_end": field(page, "Дата окончания представления") or trade.get("bids_end"),
         "auction_date": field(page, "Дата проведения"),

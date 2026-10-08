@@ -1,0 +1,599 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ru" dir="ltr" class="js gecko win cufon-active cufon-ready" lang="ru">
+<head>
+<title>Электронная площадка ЭСП</title>
+	<link rel="stylesheet" href="https://el-torg.com/inc/css/style.css?v=10">
+
+
+
+	<script src="https://el-torg.com/inc/js/jquery_1.10.2.js"></script>
+	<script src="https://el-torg.com/inc/js/bootstrap.3.3.7.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+	<script src="https://el-torg.com/inc/js/script.js"></script>
+	<script src="https://el-torg.com/inc/js/jquery.datetimepicker.js"></script>
+	<link href="https://el-torg.com/inc/css/jquery.datetimepicker.css" rel="stylesheet">
+	<script>
+		function redirector(new_url) {
+			window.location.href=new_url;
+		}
+	</script>
+
+	<script>
+		function table_shower(id) {
+			table_id="#"+id;
+			$(table_id).toggleClass('collapse');
+		}
+	</script>
+	<!-- Yandex.Metrika counter -->
+			<script type="text/javascript" >
+				(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+					m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+				(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+		
+				ym(87515558, "init", {
+					clickmap:true,
+					trackLinks:true,
+					accurateTrackBounce:true,
+					webvisor:true
+				});
+			</script>
+			<noscript><div><img src="https://mc.yandex.ru/watch/87515558" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+			<!-- /Yandex.Metrika counter -->
+			</head>
+<script>
+
+	$(document).ready(function() {myclock();});
+
+	function myclock()
+	{
+		serverdate=new Date("Oct 03 2026 01:24:10");
+		var test_date2;
+
+			if (document.getElementById("tempclock").value=="")
+			{
+				changed_date="Oct" + " "+ serverdate.getDate()+ " " + serverdate.getFullYear()+ " "+ serverdate.getHours()+":" + serverdate.getMinutes()+ ":"  + serverdate.getSeconds();
+				newdate=serverdate.getDate(); if (newdate < 10) {newdate = "0" + newdate; }
+				newmonth=(serverdate.getMonth()+1); if (newmonth < 10) {newmonth = "0" + newmonth; }
+				newYear=serverdate.getFullYear();
+				newHours=serverdate.getHours(); if (newHours < 10) {newHours = "0" + newHours; }
+				newMinutes=serverdate.getMinutes(); if (newMinutes < 10) {newMinutes = "0" + newMinutes; }
+				newSeconds=serverdate.getSeconds(); if (newSeconds < 10) {newSeconds = "0" + newSeconds; }
+				test_date2=newHours+":"+newMinutes+":"+newSeconds;
+			}
+			else
+			{
+				newalldate=new Date(document.getElementById("tempclock").value);
+				newalldate.setTime(newalldate.getTime()+1000);
+				changed_date="Oct" + " "+ newalldate.getDate()+ " " + newalldate.getFullYear()+ " "+ newalldate.getHours()+":" + newalldate.getMinutes()+ ":"  + newalldate.getSeconds()
+				newdate=newalldate.getDate(); if (newdate < 10) {newdate = "0" + newdate; }
+				newmonth=(newalldate.getMonth()+1); if (newmonth < 10) {newmonth = "0" + newmonth; }
+				newYear=newalldate.getFullYear();
+				newHours=newalldate.getHours(); if (newHours < 10) {newHours = "0" + newHours; }
+				newMinutes=newalldate.getMinutes(); if (newMinutes < 10) {newMinutes = "0" + newMinutes; }
+				newSeconds=newalldate.getSeconds(); if (newSeconds < 10) {newSeconds = "0" + newSeconds; }
+				test_date2=newHours+":"+newMinutes+":"+newSeconds;
+			}
+
+			document.getElementById("tempclock").value = changed_date;
+			document.getElementById("currenttime").innerHTML = test_date2;
+
+			setTimeout(myclock, 1000);
+	}
+
+</script><body class="front not-logged-in page-auctions one-sidebar sidebar-left lightbox-processed">
+<input type="hidden" size="20" name="tempclock" id="tempclock">
+<div id="art-main">
+	<div class="art-sheet">
+		<div class="art-sheet-cc"></div>
+		<div class="art-sheet-body">
+			<div class="art-header">
+				<div class="art-header-jpeg">
+					<div class="currentdate"><span id="currentdate">03.10.2026</span></div>
+					<div class="currenttime"><span id="currenttime"></span></div></div>
+				<div class="art-logo">
+					<h1 class="art-logo-name"><a href="http://el-torg.com/" title="Электронная площадка ЭСП по продаже имущества должников">Электронная площадка ЭСП по продаже имущества должников</a></h1>
+				</div>
+			</div>
+			<div class="art-content-layout">
+				<div class="art-content-layout-row">
+					<div class="art-layout-cell art-sidebar1" id="art-sidebar1">
+						<div id="logo2"><img src="https://el-torg.com/inc/images/logo/molotok.png"></div>
+						<div class="art-block clear-block block block-menu" id="block-menu-menu-left-menu">
+							<div class="art-block-body">
+								<div class="art-blockcontent content">
+									<div class="art-blockcontent-body block_menu">
+																				
+					<nav class='menu_block'>
+					<ul class='nav'><li class='item-2'><a href='https://el-torg.com/common/login.php'>Вход в систему</a></li><li class='item-2'><a href='https://el-torg.com/common/page.php?id=1'>Регламент</a></li><li class='item-2'><a href='https://el-torg.com/bankrot/trade_list.php'>Банкротные торги</a></li><li class='item-2'><a href='https://el-torg.com/bankrot/trade_list_commerc.php'>Коммерческие торги</a></li><li class='item-2'><a href='https://el-torg.com/meetings/meeting_list.php'>Собрания</a></li><li class='item-2'><a href='https://el-torg.com/common/page.php?id=2'>Тарифы</a></li><li class='item-2'><a href='https://el-torg.com/common/page.php?id=3'>Контакты</a></li><li class='item-2'><a href='https://el-torg.com/stat/ecp.php'>ЭЦП</a></li><li class='item-2'><a href='https://el-torg.com/common/page.php?id=5'>О компании</a></li><li class='item-2'><a href='https://el-torg.com/stat/sro_accreditation_list.php'>Аккредитация в СРО</a></li></ul></nav>									</div>
+								</div>
+							</div>
+							<div class="art-block-body">
+								<div class="art-blockcontent content">
+									ВНИМАНИЕ!<br>
+										Оператор Электронной площадки ЭСП (адрес в сети Интернет http://el-torg.com)
+										настоящим информирует своих пользователей о техническом сбое
+										в период с 08.06.2023 14:00:13 до 08.06.2023 15:53:32,
+										который повлиял на доступность для пользователей сайта электронной площадки.<br>
+										Организаторам торгов (в случае, если технический сбой повлиял на проведение торгов):
+										предлагаем обратиться с заявлениями к Оператору Электронной площадки ЭСП
+										об установлении новых сроков, предусмотренных при проведении торгов.<br><br>
+										<br><br><a href='https://reg.express/product/esp/?erid=2VtzqukRenu' target='_blank'><img src='https://el-torg.com/sites/default/files/banners/fastreg/fastreg5.gif'></a>								</div>
+							</div>
+						</div>
+					</div>
+					<div class="content">
+						
+			<h1 class='node_header'>Теленгатор  Ирина  Яковлевна<br>
+			<span class='text-muted'>Идентификационный номер </span>008333<br>
+			<span class='text-muted'>Текущий статус </span>Прием заявок</h1>
+			
+					<table class='node_view' style='margin-bottom:10px;'>
+					<tr><th colspan=2>Информация о ходе торгов</th></tr><tr><td class='label'>Тип торгов</td><td colspan=2>Публичное предложение</td></tr><tr><td class='label'>Дата начала представления заявок на участие</td><td colspan=2>02.10.2026 00:00:00</td></tr><tr><td class='label'>Дата окончания представления заявок на участие</td><td colspan=2>07.11.2026 23:59:00</td></tr></table>
+					<table class='node_view' style='margin-bottom:10px;'>
+					<tr><th colspan=2>Информация о должнике</th></tr><tr><td class='label'>Тип должника</td><td colspan=2>Физическое лицо</td></tr><tr><td class='label'>Фамилия</td><td colspan=2>Теленгатор </td></tr><tr><td class='label'>Имя</td><td colspan=2>Ирина </td></tr><tr><td class='label'>Отчество</td><td colspan=2>Яковлевна</td></tr><tr><td class='label'>ИНН</td><td colspan=2>525400340007</td></tr><tr><td class='label'>Адрес</td><td colspan=2>607189, Нижегородская обл, г Саров, ул Куйбышева, д 5, кв 29</td></tr><tr><td class='label'>Наименование суда </td><td colspan=2>Арбитражный суд Нижегородской области</td></tr><tr><td class='label'>Номер дела о банкротстве</td><td colspan=2>А43-5756/2026</td></tr><tr><td class='label'>Основание для проведения торгов</td><td colspan=2>Положение о торгах</td></tr></table>
+					<table class='node_view' style='margin-bottom:10px;'>
+					<tr><th colspan=2>Информация об арбитражном управляющем</th></tr><tr><td class='label'>Фамилия</td><td colspan=2>Новицкая</td></tr><tr><td class='label'>Имя</td><td colspan=2>Наталия</td></tr><tr><td class='label'>Отчество</td><td colspan=2>Владимировна</td></tr><tr><td class='label'>ИНН</td><td colspan=2>525405496400</td></tr><tr><td class='label'>Регистрационный номер ФРС</td><td colspan=2>19881</td></tr><tr><td class='label'>Наименование СРО</td><td colspan=2>Ассоциация ДМСО - Ассоциация Дальневосточная межрегиональная саморегулируемая организация профессиональных арбитражных управляющих</td></tr></table>
+					<table class='node_view' style='margin-bottom:10px;'>
+					<tr><th colspan=2>Контактное лицо организатора торгов</th></tr><tr><td class='label'>ФИО</td><td colspan=2>Теленгатор Ирина Яковлевна</td></tr><tr><td class='label'>Телефон</td><td colspan=2>89081555404</td></tr><tr><td class='label'>E-mail</td><td colspan=2>novitskaya_nv@mail.ru</td></tr></table>
+					<table class='node_view' style='margin-bottom:10px;'>
+					<tr><th colspan=2>Информация о проведении торгов</th></tr><tr><td class='label'>Номер объявления о проведении торгов на fedresurs.ru</td><td colspan=2>24889536</td></tr><tr><td class='label'>Порядок представления заявок на участие в торгах</td><td colspan=2>Задаток и заявки на участие принимаются по адресу электронной площадки: https//www.el-torg.com. Задаток перечисляется реквизитам: ОООЭЛЕКТРОННЫЕ СИСТЕМЫ ПОВОЛЖЬЯ ИНН:5262258084, КПП:526201001, р/с40702810730240000505, ФИЛИАЛ «ЦЕНТРАЛЬНЫЙ» БАНКА ВТБ (ПАО) В Г. МОСКВА, БИК 044525411, к/с 30101810145250000411. Задаток должен быть внесен Заявителем в срок, обеспечивающий его поступление на счет, указанный в информационном сообщении о проведении торгов, до даты окончания приема заявок на участие в торгах.</td></tr><tr><td class='label'>Сроки и порядок внесения и возврата задатка, реквизиты счетов, на которые вносится задаток</td><td colspan=2>Задаток и заявки на участие принимаются по адресу электронной площадки: https//www.el-torg.com. Задаток перечисляется реквизитам: ОООЭЛЕКТРОННЫЕ СИСТЕМЫ ПОВОЛЖЬЯ ИНН:5262258084, КПП:526201001, р/с40702810730240000505, ФИЛИАЛ «ЦЕНТРАЛЬНЫЙ» БАНКА ВТБ (ПАО) В Г. МОСКВА, БИК 044525411, к/с 30101810145250000411. Задаток должен быть внесен Заявителем в срок, обеспечивающий его поступление на счет, указанный в информационном сообщении о проведении торгов, до даты окончания приема заявок на участие в торгах.</td></tr><tr><td class='label'>Порядок и критерии определения победителя торгов</td><td colspan=2>Победителем торгов признается участник, предложивший наиболее высокую цену на этапе.</td></tr><tr><td class='label'>Порядок ознакомления с имуществом</td><td colspan=2>Ознакомиться с состоянием имущества можно в рабочие дни по адресу местонахождения имущества (телефон для согласования осмотра указан выше), с документами по адресу: 603163, г. Н. Новгород, ул. Родионова 197, к. 2, пом. 7.</td></tr><tr><td class='label'>Место подведения результатов торгов</td><td colspan=2>Подведение итогов производится по окончании торгов по месту проведения торгов.</td></tr><tr><td class='label'>Порядок и срок заключения договора купли-продажи</td><td colspan=2>Договор купли-продажи заключается с победителем в течение пяти дней со дня получения им предложения финансового управляющего о заключении такого договора. Оплата – в течение тридцати дней с даты заключения договора купли-продажи.</td></tr><tr><td class='label'>Сроки платежей, реквизиты счетов, на которые вносятся платежи</td><td colspan=2>Договор купли-продажи заключается с победителем в течение пяти дней со дня получения им предложения финансового управляющего о заключении такого договора. Оплата – в течение тридцати дней с даты заключения договора купли-продажи.</td></tr></table>
+					<table class='node_view' style='margin-bottom:10px;'>
+					<tr><th colspan=2>Дополнительные сведения</th></tr><tr><td class='label'>Дата размещения сообщения в Едином федеральном реестре сведений о банкротстве</td><td colspan=2>01.10.2026</td></tr></table><a name='docs_list'></a>
+					<table class='node_view'>
+					<tr><th colspan=2 class='table_header'>Документы</th></tr>
+					<tr><td class='label'>Проект договора купли-продажи</td><td class='file_container'>
+			<div style='margin: 2px;font-size:11px;'><img src='https://el-torg.com/inc/images/icons/doc.gif' style='vertical-align: middle' width='16' height='16' border='0'> <a class='file_link' href='https://el-torg.com/files/113964/297072.docx' target='_blank' name='297072' download='ДКП проект.docx'>ДКП проект.docx</a> [12.83 Кбайт]</div><div style='padding-top: 7px; font-size:11px;'><img src='https://el-torg.com/inc/images/lock.gif' style='vertical-align: middle' width='16' height='16' border='0'> Подписано ЭП: Новицкая Наталия Владимировна</div></td></tr><tr><td class='label'>Проект договора задатка</td><td class='file_container'>
+			<div style='margin: 2px;font-size:11px;'><img src='https://el-torg.com/inc/images/icons/doc.gif' style='vertical-align: middle' width='16' height='16' border='0'> <a class='file_link' href='https://el-torg.com/files/113964/297073.docx' target='_blank' name='297073' download='Договор о задатке 25839-2 автомобиль 484000.00р.docx'>Договор о задатке 25839-2 автомобиль 484000.00р.docx</a> [12.26 Кбайт]</div><div style='padding-top: 7px; font-size:11px;'><img src='https://el-torg.com/inc/images/lock.gif' style='vertical-align: middle' width='16' height='16' border='0'> Подписано ЭП: Новицкая Наталия Владимировна</div></td></tr><tr><td class='label'>Прочие документы</td><td class='file_container'>
+			<div style='margin: 2px;font-size:11px;'><img src='https://el-torg.com/inc/images/icons/pdf.gif' style='vertical-align: middle' width='16' height='16' border='0'> <a class='file_link' href='https://el-torg.com/files/113964/297074.pdf' target='_blank' name='297074' download='Должник Фото имущества (авто%2C квартиры и тд) (1).pdf'>Должник Фото имущества (авто%2C квартиры и тд) (1).pdf</a> [456.30 Кбайт]</div><div style='padding-top: 7px; font-size:11px;'><img src='https://el-torg.com/inc/images/lock.gif' style='vertical-align: middle' width='16' height='16' border='0'> Подписано ЭП: Новицкая Наталия Владимировна</div></td></tr><tr><td class='label'>Прочие документы</td><td class='file_container'>
+			<div style='margin: 2px;font-size:11px;'><img src='https://el-torg.com/inc/images/icons/pdf.gif' style='vertical-align: middle' width='16' height='16' border='0'> <a class='file_link' href='https://el-torg.com/files/113964/297075.pdf' target='_blank' name='297075' download='Должник Фото имущества (авто%2C квартиры и тд).pdf'>Должник Фото имущества (авто%2C квартиры и тд).pdf</a> [205.55 Кбайт]</div><div style='padding-top: 7px; font-size:11px;'><img src='https://el-torg.com/inc/images/lock.gif' style='vertical-align: middle' width='16' height='16' border='0'> Подписано ЭП: Новицкая Наталия Владимировна</div></td></tr></table><a name='lots_list'></a>
+				<table class='node_view  ' id='table_lot_1' style='margin-bottom:10px;'>
+				<thead>
+				<tr>
+				<th colspan=2 class='table_header'>
+				<a name='lot1'></a>
+				<a name='lot113965'></a>
+				Лот № 1</th></tr></thead><tbody><tr><td class='label'>Номер лота</td><td colspan=2>1</td></tr><tr><td class='label'>Наименование имущества</td><td colspan=2>автомобиль NISSAN PATHFINDER</td></tr><tr><td class='label'>Cведения об имуществе (предприятии) должника, выставляемом на торги, его составе, характеристиках, описание</td><td colspan=2>автомобиль NISSAN PATHFINDER, автомобиль не в пользовании более 2 лет, не заводится, пробег 400 000, сломан двигатель, требуется капитальный ремонт
+Год выпуска 2008, VIN VSKJVWR51U0325578, Место нахождения имущества: г.Саров,на площадке ГАИ ,ул.Солнечная 10</td></tr><tr><td class='label'>Начальная цена</td><td colspan=2>435600.00</td></tr><tr><td class='label'>Размер задатка</td><td colspan=2>87120.00</td></tr><tr><td class='label'>Перечисление задатка</td><td colspan=2>На счет оператора</td></tr><tr class='alw'><td class='label'>Подано заявок</td><td>0</td></tr><tr class='alw'><td class='label'>Статус торгов</td><td><span style='color:#f00;'>Прием заявок</span></td></tr><tr><td colspan=2 class='label'>
+				<table class='views-table inner discount_int'>
+				<tr>
+					<th>Дата начала</th>
+					<th>Дата окончания</th>
+					<th>Размер задатка, руб.</th>
+					<th>Цена на периоде, руб.</th>
+				</tr><tr class='discount_row current_int' id='row_discount_1'><td>02.10.2026 00:00</td><td>11.10.2026 23:59</td><td>87 120.00</td><td>435 600.00</td></tr><tr class='discount_row' id='row_discount_2'><td>12.10.2026 00:00</td><td>14.10.2026 23:59</td><td>78 408.00</td><td>392 040.00</td></tr><tr class='discount_row' id='row_discount_3'><td>15.10.2026 00:00</td><td>17.10.2026 23:59</td><td>69 696.00</td><td>348 480.00</td></tr><tr class='discount_row' id='row_discount_4'><td>18.10.2026 00:00</td><td>20.10.2026 23:59</td><td>60 984.00</td><td>304 920.00</td></tr><tr class='discount_row' id='row_discount_5'><td>21.10.2026 00:00</td><td>23.10.2026 23:59</td><td>52 272.00</td><td>261 360.00</td></tr><tr class='discount_row' id='row_discount_6'><td>24.10.2026 00:00</td><td>26.10.2026 23:59</td><td>43 560.00</td><td>217 800.00</td></tr><tr class='discount_row' id='row_discount_7'><td>27.10.2026 00:00</td><td>29.10.2026 23:59</td><td>34 848.00</td><td>174 240.00</td></tr><tr class='discount_row' id='row_discount_8'><td>30.10.2026 00:00</td><td>01.11.2026 23:59</td><td>26 136.00</td><td>130 680.00</td></tr><tr class='discount_row' id='row_discount_9'><td>02.11.2026 00:00</td><td>04.11.2026 23:59</td><td>17 424.00</td><td>87 120.00</td></tr><tr class='discount_row' id='row_discount_10'><td>05.11.2026 00:00</td><td>07.11.2026 23:59</td><td>8 712.00</td><td>43 560.00</td></tr></table></td></tr></tbody></table>
+						<table class='node_view'>
+							<tr>
+								<th colspan=2 class='table_header'>Сведения об ЭП торгов</th>
+							</tr>
+							<tr>
+								<td colspan=2 class='label'><img src='https://el-torg.com/inc/images/lock.gif' style='vertical-align: middle' width='16' height='16' border='0'>
+								Подписано ЭП: Новицкая Наталия Владимировна
+								</td>
+							</tr>
+						</table>
+						
+					<table class='node_view collapse' id='print_forms'>
+					<thead>
+					<tr>
+						<th onclick='table_shower("print_forms");' class='table_header'><span class='lot_header'>Извещения о торгах в печатной форме</span></th>
+					</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class='label'>
+								<a href='https://el-torg.com/files/prints/8333/8333_564941767.doc' download='Извещение о торгах № 008333 от 01.10.2026 17:36:42.doc'>Извещение о торгах № 008333 от 01.10.2026 17:36:42</a>
+								<div style='padding-top: 7px; font-size:11px;'>
+									<img id='' src='https://el-torg.com/inc/images/lock.gif' style='vertical-align: middle' width='16' height='16' border='0'>
+									Подписано ЭП: Новицкая Наталия Владимировна
+								</div>
+							</td>
+						</tr></tbody></table>
+				<script>
+					$(function(lot_header){
+						$('section.lot_section').each(function(){
+							lot_header='';
+							lot_header=$(this).find('.lot_header').text();
+							if (lot_header.indexOf('(Прием заявок)')==-1) {
+								//$(this).find('div.content').hide();
+							}
+							else {
+								$(this).find('.lot_header span').css('color','#090');
+							}
+						});
+						$('section.lot_section').click(function(){
+							//$(this).find('.content').show(400);
+						});
+					});
+				</script>					</div>
+				</div>
+			</div>
+			<div class="cleared"></div>
+			<div class="art-footer">
+				<div class="art-footer-t"></div>
+				<div class="art-footer-b"></div>
+				<div class="art-footer-body">
+					<div class="art-footer-text">
+						Электронные системы Поволжья
+						<div class='active_users'>
+													</div>
+					</div>
+					<div class="cleared"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="cleared"></div>
+	<p class="art-page-footer"></p>
+</div>
+<div id="lightbox2-overlay" style="display: none;"></div>
+<div id="lightbox" style="display: none;" class="lightbox2-orig-layout">
+	<div id="outerImageContainer" style="background-color: rgb(255, 255, 255); color: rgb(0, 0, 0);">
+		<div id="modalContainer" style="display: none; padding: 10px;"></div>
+		<div id="frameContainer" style="display: none; padding: 10px;"></div>
+		<div id="imageContainer" style="display: none; padding: 10px;">
+			<img id="lightboxImage" alt="">
+			<div id="hoverNav"><a id="prevLink" title="Предыдущий" href="#" style="padding-top: 10px;"></a><a id="nextLink" title="Далее" href="#" style="padding-top: 10px;"></a></div>
+		</div>
+		<div id="loading"><a href="#" id="loadingLink"></a></div>
+	</div>
+	<div id="imageDataContainer" class="clearfix" style="background-color: rgb(255, 255, 255); color: rgb(0, 0, 0);">
+		<div id="imageData">
+			<div id="imageDetails"><span id="caption"></span><span id="numberDisplay"></span></div>
+			<div id="bottomNav">
+				<div id="frameHoverNav"><a id="framePrevLink" title="Предыдущий" href="#" style="padding-top: 10px;"></a><a id="frameNextLink" title="Далее" href="#" style="padding-top: 10px;"></a></div>
+				<a id="bottomNavClose" title="Закрыть" href="#" style="background-color: rgb(255, 255, 255); color: rgb(0, 0, 0);"></a><a id="bottomNavZoom" href="#"></a><a id="bottomNavZoomOut" href="#"></a><a id="lightshowPause" title="Pause Slideshow" href="#" style="display: none;"></a><a id="lightshowPlay" title="Play Slideshow" href="#" style="display: none;"></a>
+			</div>
+		</div>
+	</div>
+</div>
+</body>
+</html>
+	<style>
+		.popup_container {
+			position: fixed;
+			height: 100%;
+			top: 0;
+			left: 0;
+			width: 100%;
+			overflow: hidden;
+			display: none;
+			z-index: 500;
+		}
+	
+		.popup_overlay {
+			position: fixed;
+			z-index: 999;
+			top: 0;
+			right: 0;
+			left: 0;
+			bottom: 0;
+			background: #000;
+			opacity: 0.5;
+			overflow: hidden;
+		}
+	
+		.popup {
+			display: inline-block;
+			position: relative;
+			z-index: 1000;
+			margin: 0 auto;
+			overflow: hidden;
+			text-align: center;
+		}
+	</style>
+
+	<div class='popup_container'>
+		<div class='popup_overlay'>&nbsp;</div>
+		<div class='popup' id='popup1'>
+			<table class='cert_container'>
+				<thead>
+				<tr>
+					<th>Выберите сертификат</th>
+				</tr>
+				</thead>
+				<tbody>
+				<tr>
+					<td>
+						<select size='6' name='CertListBox' id='CertListBox'></select>
+					</td>
+				</tr>
+				<tr>
+					<td id='sign_buttons' style='text-align:left;'>
+					</td>
+				</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+	
+	
+	<script>
+		function unhide_certlist() {
+			$('#popup1').show();
+			$('.popup_overlay').show();
+			$('.popup_container').show();
+	
+			disableScrolling();
+			max_height = $('.popup_container').height();
+			top_popup = Math.round(($('.popup_container').height() - $('#popup1').height()) / 2) + 'px';
+	
+			max_width = $('.popup_container').width();
+			left_popup = Math.round(($('.popup_container').width() - $('#popup1').width()) / 2) + 'px';
+	
+			$('#popup1').css({
+				'top': top_popup,
+				'left': left_popup
+			});
+		}
+	
+		function hide_certlist() {
+			$('.popup_overlay, .popup').hide();
+			$('.popup_container').hide();
+			enableScrolling();
+		}
+		
+		function disableScrolling() {
+			var x = window.scrollX;
+			var y = window.scrollY;
+			window.onmousewheel = function(event) {
+				event.preventDefault();
+			};
+			window.onscroll = function() {
+				window.scrollTo(x, y);
+			};
+		}
+	
+		function enableScrolling() {
+			window.onmousewheel = function() {};
+			window.onscroll = function() {};
+		}
+	</script>
+<script language='javascript' src='https://el-torg.com/inc/js/sign/cadesplugin_api.js?v=3'></script><script>
+
+	function check_async(){
+		var canAsync = !!cadesplugin.CreateObjectAsync;
+		if(canAsync)
+		{
+			return "async";
+		}else
+		{
+			return "npapi";
+		}
+	}
+	brows_type=check_async();
+
+	var CADESCOM_CADES_BES = 1;
+	var CAPICOM_CURRENT_USER_STORE = 2;
+	var CAPICOM_MY_STORE = "My";
+	var CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED = 2;
+	var CAPICOM_CERTIFICATE_FIND_SUBJECT_NAME = 1;
+	var CADESCOM_BASE64_TO_BINARY = 1;
+	var CAPICOM_CERTIFICATE_FIND_SHA1_HASH=0;
+
+	if (brows_type=="async") {
+		var fileref = document.createElement('script');
+		fileref.setAttribute("type", "text/javascript");
+		fileref.setAttribute("src", "https://el-torg.com/inc/js/sign/my_async.js");
+		document.getElementsByTagName("head")[0].appendChild(fileref);
+	}
+	else if (brows_type=="npapi") {
+		var fileref = document.createElement('script');
+		fileref.setAttribute("type", "text/javascript");
+		fileref.setAttribute("src", "https://el-torg.com/inc/js/sign/my_npapi.js");
+		document.getElementsByTagName("head")[0].appendChild(fileref);
+	}
+
+	function show_cert_list(action) {
+		allow_sign=false;
+		if (action=="premium_app_sign") {
+			if ($('#premium_app_date').val()!="") {
+				allow_sign=true;
+			}
+			else {
+				allow_sign=false;
+				$('#premium_app_date').css('box-shadow','inset 0 0 8px rgba(255,0,0,0.6)');
+				$('#premium_app_date').val("");
+				$('#premium_app_date').attr('placeholder','обязательно для заполнения');
+			}
+		}
+		else {
+			allow_sign=true;
+		}
+		if (allow_sign==true) {
+			sign_buttons_text = "<input type='button' onclick='select_cert(\"" + action + "\");' id='cert_sign_button' value='Выбрать сертификат' disabled><input type='button' onclick='close_certlist();' value='Отмена'>";
+			$("td#sign_buttons").html(sign_buttons_text);
+			FillCertList('CertListBox');
+			unhide_certlist();
+		}
+
+	}
+
+	function close_certlist() {
+		$("#cert_sign_button").prop("disabled",true);
+		hide_certlist();
+	}
+
+	function select_cert(action) {
+		var e = document.getElementById("CertListBox");
+		var selectedCertID = e.selectedIndex;
+		if (selectedCertID == -1) {
+			alert("Выберите сертификат");
+			return;
+		}
+		var thumbprint = e.options[selectedCertID].value.split(" ").reverse().join("").replace(/\s/g, "").toUpperCase();
+		hide_certlist();
+
+
+		if (action.indexOf("uploaded_file_sign")!=-1) {
+			fid = action.replace("uploaded_file_sign_", "");
+			sign_data_selector="#sign_data\\["+fid+"\\]";
+			sign_data=$(sign_data_selector).val();
+			create_sign(thumbprint,sign_data,true,action);
+		}
+		else if (action=="user_fill") {
+			sign_data = Base64.encode("any_text");
+			create_sign(thumbprint,sign_data,false,'user_fill');
+		}
+		else if (action=="file_sign") {
+			let file = $('#file_for_upload')[0].files[0];
+			let reader = new FileReader();
+			//reader.readAsBinaryString(file);
+			reader.readAsDataURL(file);
+			reader.onload = function() {
+				var header = ';base64,';
+				var fileData = reader.result;
+				var fileContent = fileData.substr(fileData.indexOf(header) + header.length);
+				sign_data = fileContent;
+				create_sign(thumbprint,sign_data,true,"file_sign");
+			}
+		}
+		else if (action=="prot_sign") {
+			sign_data = $("#prot_base64").html();
+			create_sign(thumbprint,sign_data,true,"prot_sign");
+		}
+		else if (action=="edo_file_op_sign") {
+			sign_data_selector="#sign_data_upload";
+			sign_data=$(sign_data_selector).val();
+			create_sign(thumbprint,sign_data,true,action);
+		}
+		else if (action.indexOf("edo_file_sign")!=-1) {
+			fid = action.replace("edo_file_sign_", "");
+			sign_data_selector="#sign_data\\["+fid+"\\]";
+			sign_data=$(sign_data_selector).val();
+			create_sign(thumbprint,sign_data,true,action);
+		}
+		else if (action=="node_sign") {
+			sign_data = Base64.encode($("#signed_text").val());
+			create_sign(thumbprint,sign_data,true,'node_sign');
+		}
+		else if (action=="pdn_sign_process") {
+			sign_data = $("#pdn_process_sign_data").val();
+			create_sign(thumbprint,sign_data,true,'pdn_sign_process');
+		}
+		else if (action=="pdn_sign_distribution") {
+			sign_data = $("#pdn_distribution_sign_data").val();
+			create_sign(thumbprint,sign_data,true,'pdn_sign_distribution');
+		}
+		else if (action=="premium_app_sign") {
+			if ($('#premium_app_date').val()!="") {
+				sign_data = Base64.encode($("#signed_text").val() + $("#premium_signed_text").val());
+				create_sign(thumbprint, sign_data, true, 'premium_app_sign');
+			}
+			else {
+				$('#premium_app_date').css('box-shadow','inset 0 0 8px rgba(255,0,0,0.6)');
+				$('#premium_app_date').val("");
+				$('#premium_app_date').attr('placeholder','обязательно для заполнения');
+			}
+		}
+		else if (action=="user_sign") {
+			sign_data = Base64.encode($("#signed_text").html());
+			create_sign(thumbprint,sign_data,true,'user_sign');
+		}
+		else if (action=="vote_sign") {
+			sign_data = Base64.encode($("#total_vote_text").html());
+			create_sign(thumbprint,sign_data,true,'vote_sign');
+		}
+		else if (action=="reg_list_sign") {
+			sign_data = $("#reg_list_base64").html();
+			create_sign(thumbprint,sign_data,true,'reg_list_sign');
+		}
+		else if (action=="protocol_sign") {
+			sign_data = $("#protocol_base64").html();
+			create_sign(thumbprint,sign_data,true,'protocol_sign');
+		}
+	}
+
+	$("#CertListBox").change(function(){
+		$("#cert_sign_button").removeAttr("disabled");
+	});
+
+
+
+
+
+
+
+	function base64_encode(data) {	// Encodes data with MIME base64
+		// for binary data
+		// +   original by: Tyler Akins (http://rumkin.com)
+		// +   improved by: Bayron Guevara
+
+		var b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+		var o1, o2, o3, h1, h2, h3, h4, bits, i = 0, enc = '';
+
+		do { // pack three octets into four hexets
+			o1 = data.charCodeAt(i++);
+			o2 = data.charCodeAt(i++);
+			o3 = data.charCodeAt(i++);
+
+			bits = o1 << 16 | o2 << 8 | o3;
+
+			h1 = bits >> 18 & 0x3f;
+			h2 = bits >> 12 & 0x3f;
+			h3 = bits >> 6 & 0x3f;
+			h4 = bits & 0x3f;
+
+			// use hexets to index into b64, and append result to encoded string
+			enc += b64.charAt(h1) + b64.charAt(h2) + b64.charAt(h3) + b64.charAt(h4);
+		} while (i < data.length);
+
+		switch (data.length % 3) {
+			case 1:
+				enc = enc.slice(0, -2) + '==';
+				break;
+			case 2:
+				enc = enc.slice(0, -1) + '=';
+				break;
+		}
+
+		return enc;
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</script><script src='https://el-torg.com/inc/js/base64.js'></script>
+<script>
+	function show_form_notification(lot_nid) {
+		var div_id="#lot_notification" + lot_nid;
+		$(div_id).toggle(300);
+	}
+
+	function create_app_template(lot_nid) {
+		formres=true;
+		form_id="#form_app_template_" + lot_nid;
+		price_id="#price_" + lot_nid;
+		button_id="#button_app_template_" + lot_nid;
+		$(price_id).each(function() {
+			if (!($.isNumeric($(price_id).val()))) {
+				$(price_id).css('box-shadow', 'inset 0 0 8px rgba(255,0,0,0.6)');
+				$("<br><span class=error> В ценовом предложении допускаются только цифры и точка;</span>").insertAfter($(button_id));
+				formres = false;
+			} else {
+				formres = true;
+			}
+		});
+
+
+		if (formres==false) {
+			return formres;
+		}
+		else {
+			$(form_id).submit();
+		}
+	}
+</script>
+

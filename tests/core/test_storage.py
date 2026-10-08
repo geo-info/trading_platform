@@ -12,6 +12,7 @@ import pytest
 from pymongo.errors import DuplicateKeyError
 
 from core.db.mongo.storage import MongoStorage
+from tp.scripts.trade_types import change, guard
 
 if TYPE_CHECKING:
     from tests.conftest import Clock
@@ -75,6 +76,32 @@ async def test_save_detail_пишет_детали_и_время(storage: MongoS
     d = await doc(storage)
     assert d["detail"] == {"Описание": "дом"}
     assert abs((d["detail_at"].replace(tzinfo=UTC) - at).total_seconds()) < 0.01
+
+
+async def test_detail_type_updates_top_level(storage: MongoStorage, clock: Clock) -> None:
+    await storage.upsert({**LOT, "trade_type": "ОАОФ", "trade_number": "1-ОАОФ"})
+    before = await doc(storage)
+    await storage.save_detail("1", {"Общие сведения": {"Тип торгов": "Публичное предложение"}}, clock.now())
+    after = await doc(storage)
+    assert after["trade_type"] == after["trade_type_raw"] == "Публичное предложение"
+    assert after["trade_type_code"] == "ОАОФ"
+    assert after["trade_kind"] == "публичное предложение"
+    assert after["trade_price_form"] is None
+    assert after["updated_at"] == before["updated_at"]
+    assert after["lot_url"] == before["lot_url"]
+
+
+async def test_trade_type_plan_guard_and_repeat(storage: MongoStorage) -> None:
+    await storage.upsert({**LOT, "trade_type": None, "trade_number": "16539-ОТПП-К"})
+    before = await doc(storage)
+    entry = change(before, {})
+    first = await storage.collection.update_one(guard(entry), {"$set": entry["after"]})
+    assert first.modified_count == 1
+    after = await doc(storage)
+    assert after["trade_type_code"] == "ОТПП-К"
+    assert after["updated_at"] == before["updated_at"]
+    repeated = await storage.collection.update_one(guard(entry), {"$set": entry["after"]})
+    assert repeated.matched_count == repeated.modified_count == 0
 
 
 async def test_save_detail_none_только_время_детали_целы(storage: MongoStorage, clock: Clock) -> None:

@@ -42,6 +42,12 @@ def test_строки_листинга() -> None:
         "status",
         "winner",
         "trade_type",
+        "trade_type_raw",
+        "trade_type_code",
+        "trade_type_source",
+        "trade_kind",
+        "trade_participation",
+        "trade_price_form",
     }
 
 

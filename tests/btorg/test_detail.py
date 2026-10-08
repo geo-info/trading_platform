@@ -39,16 +39,19 @@ def test_parse_details() -> None:
 async def test_start_requests_группирует_и_xhr() -> None:
     sink = Sink(
         [
-            {"lot_id": "13147_1", "lot_url": "u1", "trade_url": "https://t/13147"},
-            {"lot_id": "13147_2", "lot_url": "u2", "trade_url": "https://t/13147"},
-            {"lot_id": "5_1", "lot_url": "https://t/5"},
+            {"lot_id": "13147_1", "lot_url": "u1", "trade_url": URL},
+            {"lot_id": "13147_2", "lot_url": "u2", "trade_url": URL},
+            {"lot_id": "5_1", "lot_url": "https://atctrade.ru/trade/view/purchase/general.html?id=5"},
         ]
     )
     d = make(D, sink=sink)
     reqs = [r async for r in d.start_requests()]
-    assert [r.url for r in reqs] == ["https://t/13147", "https://t/5"]
-    assert [r.metadata for r in reqs] == [{"lot_ids": ["13147_1", "13147_2"]}, {"lot_ids": ["5_1"]}]
-    assert all(r.headers["X-Requested-With"] == "XMLHttpRequest" for r in reqs)
+    assert [r.url for r in reqs] == [
+        "https://atctrade.ru/trade/view/purchase/general.html?id=105491777",
+        "https://atctrade.ru/trade/view/purchase/general.html?id=5",
+    ]
+    assert [r.metadata["lot_ids"] for r in reqs] == [["13147_1", "13147_2"], ["5_1"]]
+    assert all(r.callback == d.parse_general_detail for r in reqs)
 
 
 async def test_parse_детали_по_номеру_лота() -> None:

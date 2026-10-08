@@ -31,7 +31,7 @@ uv run python -m tp.scripts.detail        # детали лотов, котор�
 uv run python -m tp.scripts.crawl                         # все площадки, до 30 страниц листинга
 uv run python -m tp.scripts.crawl kendo atctrade          # движок и отдельная площадка вперемешку
 uv run python -m tp.scripts.crawl --max-pages 5
-uv run python -m tp.scripts.detail                        # до 100 лотов на площадку за прогон
+uv run python -m tp.scripts.detail                        # до 1000 лотов на площадку за прогон
 uv run python -m tp.scripts.detail rus_on --limit 500
 uv run python -m tp.scripts.crawl --list                  # движки и площадки
 uv run python -m tp.scripts.crawl -v                      # плюс логи фреймворка, по запросу
@@ -86,6 +86,10 @@ docker compose exec mongo mongosh trading --eval 'db.bep.countDocuments()'
 ```
 
 ## Настройки
+
+Тип торгов сохраняется полным названием, исходный текст/код и отдельные
+признаки — рядом. Приоритет источников и порядок обновления уже собранных
+Mongo/PostGIS описаны в [docs/trade_types.md](docs/trade_types.md).
 
 Окружение читается в одном месте — `core/conf.py` на `pydantic-settings`.
 Умолчания подобраны так, что без единой переменной работает локальная Mongo

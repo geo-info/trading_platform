@@ -18,7 +18,7 @@ from typing import Any
 from collector import Request, Response
 from parsel import Selector
 
-from tp.btorg.base import XHR, Btorg, lot_pairs, lot_tables, parse_schedule
+from tp.btorg.base import XHR, Btorg, lot_pairs, lot_tables, parse_general, parse_schedule
 
 
 def parse_details(page: Selector) -> dict[str, dict[str, Any]]:
@@ -48,7 +48,22 @@ class BtorgDetail(Btorg):
         for lot in lots:
             trades[lot.get("trade_url") or lot["lot_url"]].append(lot["lot_id"])
         for url, lot_ids in trades.items():
-            yield self.request(url, headers=XHR, metadata={"lot_ids": lot_ids})
+            purchase = url.split("id=", 1)[-1].split("&", 1)[0]
+            general_url = f"{self.DOMAIN}/trade/view/purchase/general.html?id={purchase}"
+            yield self.request(
+                general_url,
+                callback=self.parse_general_detail,
+                metadata={"lot_ids": lot_ids, "lots_url": url},
+            )
+
+    async def parse_general_detail(self, response: Response) -> Any:
+        if response.status != 200:
+            raise ValueError(f"{response.status} для {response.request.url}")
+        yield self.request(
+            response.metadata["lots_url"],
+            headers=XHR,
+            metadata={"lot_ids": response.metadata["lot_ids"], "general": parse_general(response.selector())},
+        )
 
     async def parse(self, response: Response) -> Any:
         if response.status != 200:
@@ -65,7 +80,10 @@ class BtorgDetail(Btorg):
                 # Лот сняли с торгов: detail=None — хранилище отметит, что
                 # страницу смотрели, и лот не будет перечитываться вечно.
                 await self.log(f"лота {lot_id} во фрагменте нет — отмечаю без деталей")
-            yield {"lot_id": lot_id, "detail": details.get(lot_num)}
+            detail = details.get(lot_num)
+            if detail is not None and response.metadata.get("general"):
+                detail = {**detail, "trade_info": response.metadata["general"]}
+            yield {"lot_id": lot_id, "detail": detail}
 
 
 def detail_of(platform: type[Btorg]) -> type[BtorgDetail]:

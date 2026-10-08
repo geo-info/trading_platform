@@ -1,0 +1,1 @@
+Инженерный Architect для Plan & Act workflow: помогает думать до реализации, выбирать режим, работать с Repomix-контекстом, готовить brief для Codex/superpowers и ревьюить результат по diff.

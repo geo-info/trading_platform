@@ -30,6 +30,7 @@ from uuid import uuid4
 from core.conf import conf
 from core.db.base import KEY_FIELDS, Store, key_of
 from core.db.mongo.client import create_client
+from core.trade_type import detail_type_info, resolve_trade_type
 
 
 class MongoStorage(Store):
@@ -136,6 +137,11 @@ class MongoStorage(Store):
         fields: dict[str, Any] = {"detail_at": at}
         if detail is not None:
             fields["detail"] = dict(detail)
+            info = detail_type_info(detail)
+            if info:
+                document = await self.collection.find_one(key)
+                if document:
+                    fields.update(resolve_trade_type(info, document))
         await self.collection.update_one(key, {"$set": fields})
 
     async def count(self) -> int:

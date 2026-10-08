@@ -21,7 +21,8 @@ def test_parse_details() -> None:
     details = parse_details(page(TRADE))
     assert set(details) == {"1", "4", "7"}
     # 11 пар своей таблицы лота + график; строки вложенной таблицы интервалов — не пары.
-    assert all(len(pairs) == 12 for pairs in details.values())
+    assert all(len(pairs) == 13 for pairs in details.values())
+    assert all(pairs["Тип торгов"] == "Публичное предложение" for pairs in details.values())
     assert details["1"]["Номер лота"] == "1"
     assert details["1"]["Наименование имущества"] == "Земельные участки в количестве 10 единиц"
     assert details["1"]["Начальная цена"] == "21 434 427.98"

@@ -63,6 +63,12 @@ class Lot(BaseModel):
     #: Номер торгов, как его пишет площадка: «10840–ОАОФ».
     trade_number: str | None = None
     trade_type: str | None = None
+    trade_type_raw: str | None = None
+    trade_type_code: str | None = None
+    trade_type_source: str | None = None
+    trade_kind: str | None = None
+    trade_participation: str | None = None
+    trade_price_form: str | None = None
     auction_name: str | None = None
     lot_num: str | None = None
     description: str | None = None

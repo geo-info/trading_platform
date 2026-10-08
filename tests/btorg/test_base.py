@@ -30,7 +30,7 @@ def test_листинг() -> None:
     first = trades[0]
     assert first["trade_id"] == "13147"
     assert first["trade_number"] == "13147-ОТПП"
-    assert first["trade_type"] == "ОТПП"
+    assert first["trade_type"] == "Открытые торги посредством публичного предложения"
     assert first["trade_url"] == "/etp/trade/inner-view-lots.html?perspective=inline&id=105491777"
     assert first["page_url"] == "/trade/view/purchase/general.html?id=105491777"
 
@@ -89,14 +89,15 @@ async def test_parse_поток() -> None:
     requests, items = await _listing_flow(c)
 
     assert items == []
-    trade_requests = [r for r in requests if r.callback == c.parse_trade]
+    trade_requests = [r for r in requests if r.callback == c.parse_general]
     assert len(trade_requests) == 15
     assert {r.metadata["trade"]["trade_id"] for r in trade_requests} == {
         t["trade_id"] for t in parse_listing(_listing())
     }
-    assert all(r.headers["X-Requested-With"] == "XMLHttpRequest" for r in trade_requests)
-    assert all(r.url.startswith("https://atctrade.ru/etp/trade/inner-view-lots.html") for r in trade_requests)
-    (nxt,) = [r for r in requests if r.callback != c.parse_trade]
+    assert all(
+        r.url.startswith("https://atctrade.ru/trade/view/purchase/general.html") for r in trade_requests
+    )
+    (nxt,) = [r for r in requests if r.callback != c.parse_general]
     assert nxt.url == "https://atctrade.ru/etp/trade/list.html?page=2"
     assert nxt.metadata == {"num_page": 2}
 
@@ -105,13 +106,19 @@ async def test_max_pages() -> None:
     c = make(Atctrade, params={"max_pages": 1})
     requests, _ = await _listing_flow(c)
     assert len(requests) == 15
-    assert all(r.callback == c.parse_trade for r in requests)
+    assert all(r.callback == c.parse_general for r in requests)
 
 
 async def test_parse_trade_отдаёт_lot() -> None:
     c = make(Atctrade)
     requests, _ = await _listing_flow(c)
     (request,) = [r for r in requests if r.metadata.get("trade", {}).get("trade_id") == "13147"]
+    general_requests, _ = await collect(
+        c.parse_general(
+            respond(c, request, "<table><tr><td>Тип торгов</td><td>Публичное предложение</td></tr></table>")
+        )
+    )
+    (request,) = general_requests
 
     _, items = await collect(c.parse_trade(respond(c, request, read_fixture(LOTS, ENC))))
 
