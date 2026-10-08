@@ -83,6 +83,15 @@ class Result:
     reason: str = ""
     failure: str = ""
     elapsed: float = 0.0
+    limited: bool = False
+
+    @property
+    def outcome(self) -> str:
+        if self.failed:
+            return "failed"
+        if self.errors or self.limited or self.reason not in ("", "done"):
+            return "partial"
+        return "complete"
 
     @property
     def failed(self) -> bool:
@@ -96,7 +105,7 @@ class Result:
             return self.failure[:70]
         if self.failed:
             return f"ничего не получено, ошибок {self.errors} ({self.reason})"
-        return self.reason
+        return f"{self.outcome}: {self.reason}"
 
 
 async def run_many(
@@ -127,13 +136,15 @@ def report(results: Sequence[Result], done_title: str, new_title: str) -> int:
     for r in sorted(results, key=lambda r: -r.done):
         print(f"{r.name:16} {r.done:>8} {r.new:>8} {r.errors:>7} {r.elapsed:>7.1f}с  {r.why}")
     failed = [r.name for r in results if r.failed]
+    partial = [r.name for r in results if r.outcome == "partial"]
     print(f"\nвсего {done_title}: {sum(r.done for r in results)}, {new_title}: {sum(r.new for r in results)}")
     print(
-        f"площадок: {len(results) - len(failed)} из {len(results)}"
+        f"полностью обработано площадок: {len(results) - len(failed) - len(partial)} из {len(results)}"
+        + (f"; частично: {', '.join(partial)}" if partial else "")
         + (f"; упали: {', '.join(failed)}" if failed else "")
     )
     print(f"хранилище: {conf.mongo.uri}/{conf.mongo.db}.<площадка>")
-    return 1 if failed else 0
+    return 1 if any(r.outcome != "complete" for r in results) else 0
 
 
 def parser(description: str) -> argparse.ArgumentParser:

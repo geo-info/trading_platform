@@ -34,7 +34,7 @@ def number_type(number: str | None) -> str | None:
     return clean(match[1]) if match else None
 
 
-def normalize_trade_type(raw: str | None, *, source: str | None = None) -> dict[str, str | None]:
+def normalize_trade_type(raw: str | None, *, source: str | None = None) -> dict[str, Any]:
     raw = clean(raw)
     code_match = re.fullmatch(r"([А-ЯЁA-Z]{2,}(?:[-–—][А-ЯЁA-Z]+)*)(?:\s*\((.+)\))?", raw or "")
     code = code_match[1] if code_match else None
@@ -66,12 +66,11 @@ def normalize_trade_type(raw: str | None, *, source: str | None = None) -> dict[
         "trade_kind": kind,
         "trade_participation": participation,
         "trade_price_form": price_form,
+        "trade_type_conflicts": [],
     }
 
 
-def resolve_trade_type(
-    info: Mapping[str, Any], trade: Mapping[str, Any] | None = None
-) -> dict[str, str | None]:
+def resolve_trade_type(info: Mapping[str, Any], trade: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Явная подпись, пояснение номера страницы, затем сведения листинга."""
     trade = trade or {}
     for label in TYPE_LABELS:
@@ -104,10 +103,19 @@ def resolve_trade_type(
     return explicit_attributes(result, info)
 
 
-def explicit_attributes(result: dict[str, str | None], info: Mapping[str, Any]) -> dict[str, str | None]:
+def explicit_attributes(result: dict[str, Any], info: Mapping[str, Any]) -> dict[str, Any]:
     for label, key in ATTRIBUTE_LABELS.items():
         value = clean(info.get(label))
         if value and value.lower() in ("открытая", "закрытая"):
+            if result.get(key) and result[key] != value.lower():
+                result["trade_type_conflicts"].append(
+                    {
+                        "field": key,
+                        "from_type": result[key],
+                        "explicit": value.lower(),
+                        "source": f"page:{label}",
+                    }
+                )
             result[key] = value.lower()
     return result
 

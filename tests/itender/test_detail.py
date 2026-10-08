@@ -55,6 +55,13 @@ async def test_start_requests_из_хранилища() -> None:
 async def test_limit() -> None:
     d = make(D, params={"limit": 1}, sink=Sink(LOT_ROWS))
     assert len([r async for r in d.start_requests()]) == 1
+    assert d.limit_reached is True
+
+
+async def test_exact_limit_is_complete() -> None:
+    d = make(D, params={"limit": 2}, sink=Sink(LOT_ROWS))
+    assert len([r async for r in d.start_requests()]) == 2
+    assert d.limit_reached is False
 
 
 async def test_parse_отдаёт_детали() -> None:
@@ -70,3 +77,10 @@ def test_detail_of() -> None:
     assert D.__module__ == Centerr.__module__
     assert D.params.limit == 100
     assert D.__mro__[1].__name__ == "ITenderDetail"
+
+
+async def test_http_200_placeholder_is_error() -> None:
+    d = make(D)
+    req = Request(url="https://x/1", metadata={"lot_id": "1"})
+    with pytest.raises(ValueError, match="лот"):
+        await collect(d.parse(respond(d, req, "<html>Технические работы</html>")))

@@ -196,6 +196,7 @@ class Kendo(Crawler):
         if next_page is None:
             await self.log(f"страница {num_page} последняя")
         elif num_page >= self.params.max_pages:
+            self.limit_reached = True
             await self.log(f"дошли до предела max_pages={self.params.max_pages}, дальше не листаем")
         else:
             number, href = next_page

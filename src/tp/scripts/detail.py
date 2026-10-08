@@ -3,7 +3,7 @@
 Какие лоты обходить, решает база (``pending_detail``): деталей ещё нет или
 лот изменился после них. Сначала — свежие.
 
-    uv run python -m tp.scripts.detail                   все площадки, до 100 лотов на каждую
+    uv run python -m tp.scripts.detail                   все площадки, до 1000 лотов на каждую
     uv run python -m tp.scripts.detail rus_on --limit 500
     uv run python -m tp.scripts.detail itender
 """
@@ -38,7 +38,14 @@ async def fetch_details(platform: type[Crawler], limit: int) -> Result:
         await run.log(
             f"готово: деталей {done}, лотов нет на странице {gone}, ошибок {stats.errors} ({stats.reason})"
         )
-        return Result(platform.name, done=done - gone, new=gone, errors=stats.errors, reason=stats.reason)
+        return Result(
+            platform.name,
+            done=done - gone,
+            new=gone,
+            errors=stats.errors,
+            reason=stats.reason,
+            limited=getattr(run.crawl.crawler, "limit_reached", False),
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -66,5 +73,4 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-
     raise SystemExit(main())

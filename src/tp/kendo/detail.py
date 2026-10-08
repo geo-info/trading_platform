@@ -50,7 +50,10 @@ class KendoDetail(Kendo):
     params = DetailParams()
 
     async def start_requests(self) -> AsyncIterator[Request]:
-        lots = [lot async for lot in self.ctx.sink.pending_detail(self.params.limit)]
+        limit = self.params.limit
+        lots = [lot async for lot in self.ctx.sink.pending_detail(limit + 1 if limit else 0)]
+        self.limit_reached = bool(limit and len(lots) > limit)
+        lots = lots[: limit or None]
         await self.log(f"ждут деталей: {len(lots)} (не больше {self.params.limit})")
         trades: dict[str, list[str]] = defaultdict(list)
         for lot in lots:

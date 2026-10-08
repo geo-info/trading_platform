@@ -87,7 +87,7 @@ async def test_detail_type_updates_top_level(storage: MongoStorage, clock: Clock
     assert after["trade_type_code"] == "ОАОФ"
     assert after["trade_kind"] == "публичное предложение"
     assert after["trade_price_form"] is None
-    assert after["updated_at"] == before["updated_at"]
+    assert after["updated_at"] > before["updated_at"]
     assert after["lot_url"] == before["lot_url"]
 
 

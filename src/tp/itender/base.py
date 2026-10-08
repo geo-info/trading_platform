@@ -13,6 +13,7 @@ from collector import Crawler, Response, Settings
 from parsel import Selector
 
 from core.help import clean
+from core.lot import Lot
 from core.registry import register
 from core.trade_type import normalize_trade_type
 
@@ -107,6 +108,7 @@ class ITender(Crawler):
         if next_target is None:
             await self.log(f"страница {num_page} последняя")
         elif num_page >= self.params.max_pages:
+            self.limit_reached = True
             await self.log(f"дошли до предела max_pages={self.params.max_pages}, дальше не листаем")
         else:
             yield response.form_request(
@@ -117,9 +119,11 @@ class ITender(Crawler):
     def make_item(self, row: dict[str, Any], response: Response) -> dict[str, Any]:
         """Лот: полная ссылка и ``lot_id`` — последний сегмент её пути."""
         lot_url = response.urljoin(row["lot_url"])
-        return {
-            "source": self.name,
-            "lot_id": lot_url.rstrip("/").rsplit("/", 1)[-1],
-            **row,
-            "lot_url": lot_url,
-        }
+        return Lot(
+            **{
+                "source": self.name,
+                "lot_id": lot_url.rstrip("/").rsplit("/", 1)[-1],
+                **row,
+                "lot_url": lot_url,
+            }
+        ).model_dump()

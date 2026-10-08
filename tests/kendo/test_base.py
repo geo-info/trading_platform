@@ -122,6 +122,7 @@ async def test_max_pages() -> None:
     requests, _ = await _listing_flow(c)
     assert len(requests) == 15
     assert all(r.callback == c.parse_trade for r in requests)
+    assert c.limit_reached is True
 
 
 async def test_parse_trade_отдаёт_lot() -> None:
