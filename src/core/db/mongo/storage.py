@@ -33,6 +33,7 @@ from pymongo.errors import DuplicateKeyError
 from core.conf import conf
 from core.db.base import KEY_FIELDS, Store, key_of
 from core.db.mongo.client import create_client
+from core.db.mongo.queries import pending_detail_query
 from core.lot_state import detail_fields, listing_fields
 
 
@@ -80,7 +81,7 @@ class MongoStorage(Store):
         return self
 
     async def _write(self, key: dict, reduce: Callable, *, insert: bool = False) -> bool:
-        """CAS: содержимое, ревизия и время записи меняются атомарно.
+        """CAS: содержимое, ревизия и метки изменения меняются атомарно.
 
         При конфликте перечитываем документ и заново применяем чистое правило.
         Уникальный индекс защищает одновременно начавшиеся вставки.
@@ -93,7 +94,7 @@ class MongoStorage(Store):
             fields = reduce(old, now)
             if not fields:
                 return False
-            fields.update(written_at=now, revision=old.get("revision", 0) + 1)
+            fields.update(revision=old.get("revision", 0) + 1)
             if not old:
                 try:
                     await self.collection.insert_one({**key, **fields})
@@ -125,13 +126,7 @@ class MongoStorage(Store):
         выборку снова. Свежие — первыми. ``statuses`` — только лоты с этими
         статусами (как их пишет листинг).
         """
-        query: dict[str, Any] = {
-            "source": self.source,
-            "$or": [
-                {"detail_at": {"$exists": False}},
-                {"$expr": {"$gt": [{"$ifNull": ["$listing_changed_at", "$updated_at"]}, "$detail_at"]}},
-            ],
-        }
+        query = pending_detail_query(self.source)
         if statuses:
             query["status"] = {"$in": statuses}
         # trade_url — адрес страницы торгов: у kendo, btorg и rus-on детали
