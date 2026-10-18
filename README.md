@@ -31,7 +31,7 @@ uv run python -m tp.scripts.detail        # детали лотов, котор�
 uv run python -m tp.scripts.crawl                         # все площадки, до 30 страниц листинга
 uv run python -m tp.scripts.crawl kendo atctrade          # движок и отдельная площадка вперемешку
 uv run python -m tp.scripts.crawl --max-pages 5
-uv run python -m tp.scripts.detail                        # до 100 лотов на площадку за прогон
+uv run python -m tp.scripts.detail                        # до 1000 лотов на площадку за прогон
 uv run python -m tp.scripts.detail rus_on --limit 500
 uv run python -m tp.scripts.crawl --list                  # движки и площадки
 uv run python -m tp.scripts.crawl -v                      # плюс логи фреймворка, по запросу
@@ -65,27 +65,28 @@ docker compose --profile tools up -d    # mongo-express на 127.0.0.1:8081
 
 Документ лота:
 
-- поля листинга. У Kendo, btorg и rus-on — модель `core.lot.Lot`: значения
-  как на площадке (`price`, `bids_end`, `auction_date`, `status` — строки) и
-  разобранные рядом (`price_value`, `bids_end_at`, `auction_at` — по Москве,
-  `is_active` — по статусу). iTender пишет те же поля строкой листинга, без
-  разобранных;
-- `lot_url` — страница лота для человека (если своей нет — страница торгов),
-  `trade_url` — откуда detail берёт детали (страница торгов или AJAX-фрагмент
-  лотов btorg);
-- `created_at`, `updated_at` — ставит хранилище; `updated_at` сдвигается,
-  только когда лот изменился на площадке (обычно статус);
-- `detail`, `detail_at` — дописывает detail. Вид `detail` — свой у движка:
-  разделы с парами у iTender, пары «подпись: значение» у остальных, плюс
-  `attachments` (Kendo) и `price_schedule` — график снижения цены (btorg,
-  rus-on). Лот, которого на странице торгов уже нет, получает только
-  `detail_at`: прежние детали остаются, в очередь он не возвращается.
+- поля листинга: все четыре движка используют `core.lot.Lot`; исходные строки
+  и разобранные цена/даты рядом. Неизвестный `is_active` равен `null`;
+- `listing` и `detail` сохраняют наблюдения, верхние поля — текущую проекцию;
+- `updated_at` меняется атомарно с содержимым, `last_seen_at` — при каждом
+  наблюдении листинга, `listing_changed_at` управляет очередью деталей;
+- `detail_state` отличает найденный лот от отсутствующего на распознанной
+  странице; ошибки загрузки не снимают лот с очереди;
+- `revision` защищает от конкурентной перезаписи.
+
+Подробный [контракт данных и проверка перед PostGIS](docs/data_contract.md).
+Неполный обход (ошибки или достигнутый предел) имеет результат `partial`
+и код выхода 1, даже если часть лотов сохранена.
 
 ```bash
 docker compose exec mongo mongosh trading --eval 'db.bep.countDocuments()'
 ```
 
 ## Настройки
+
+Тип торгов сохраняется полным названием, исходный текст/код и отдельные
+признаки — рядом. Приоритет источников и порядок обновления уже собранных
+Mongo/PostGIS описаны в [docs/trade_types.md](docs/trade_types.md).
 
 Окружение читается в одном месте — `core/conf.py` на `pydantic-settings`.
 Умолчания подобраны так, что без единой переменной работает локальная Mongo

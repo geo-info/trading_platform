@@ -24,6 +24,7 @@ from core.conf import conf
 from core.help import clean, digits, local_href
 from core.lot import Lot
 from core.registry import register
+from core.trade_type import normalize_trade_type, number_type, resolve_trade_type
 
 #: AJAX-фрагмент с лотами торгов — с ценами, которых нет в листинге.
 LOTS_PATH = "/etp/trade/inner-view-lots.html"
@@ -32,6 +33,17 @@ LOTS_PATH = "/etp/trade/inner-view-lots.html"
 TRADE_PAGE_PATH = "/trade/view/purchase/general.html"
 #: Фрагмент лотов отдаётся только на AJAX-запрос.
 XHR = {"X-Requested-With": "XMLHttpRequest"}
+
+
+def parse_general(page: Selector) -> dict[str, str]:
+    """Явные сведения общих условий торгов (вне AJAX-таблиц лотов)."""
+    pairs = {}
+    for row in page.xpath("//tr[td[2]][not(td//table)]"):
+        label = clean(row.xpath("string(./td[1])").get())
+        value = clean(row.xpath("string(./td[2])").get())
+        if label and value:
+            pairs[label.rstrip(":").strip()] = value
+    return pairs
 
 
 def parse_listing(page: Selector) -> list[dict[str, Any]]:
@@ -48,12 +60,11 @@ def parse_listing(page: Selector) -> list[dict[str, Any]]:
         number = clean(cells[0].xpath("string(.)").get()) if cells else None
         if not purchase or len(cells) < 5 or not digits(number):
             continue
-        parts = number.split("-")
         trades.append(
             {
                 "trade_id": digits(number),
                 "trade_number": number,
-                "trade_type": clean(parts[1]) if len(parts) == 2 else None,
+                **normalize_trade_type(number_type(number), source="listing:number"),
                 "organizer": clean(cells[1].xpath("string(.)").get()),
                 # Ячейка — «должник, предмет торгов»; имя должника — первая жирная строка.
                 "debtor": clean(cells[2].xpath('.//div[contains(@style, "bold")]//text()').get()),
@@ -133,7 +144,7 @@ def parse_lots(page: Selector, trade: dict[str, Any]) -> list[dict[str, Any]]:
                 "lot_id": f"{trade['trade_id']}_{lot_num}",
                 "trade_id": trade["trade_id"],
                 "trade_number": trade.get("trade_number"),
-                "trade_type": trade.get("trade_type"),
+                **resolve_trade_type(pairs, trade),
                 "lot_num": lot_num,
                 "debtor": trade.get("debtor"),
                 "organizer": trade.get("organizer"),
@@ -183,18 +194,27 @@ class Btorg(Crawler):
         await self.log(f"страница {num_page}: торгов {len(trades)}")
 
         for trade in trades:
-            yield response.follow(
-                trade["trade_url"], callback=self.parse_trade, headers=XHR, metadata={"trade": trade}
-            )
+            yield response.follow(trade["page_url"], callback=self.parse_general, metadata={"trade": trade})
 
         next_page = find_next_page(page, num_page)
         if next_page is None:
             await self.log(f"страница {num_page} последняя")
         elif num_page >= self.params.max_pages:
+            self.limit_reached = True
             await self.log(f"дошли до предела max_pages={self.params.max_pages}, дальше не листаем")
         else:
             number, href = next_page
             yield response.follow(href, metadata={"num_page": number})
+
+    async def parse_general(self, response: Response) -> Any:
+        """Общие условия прежде лотов: явный вид торгов приоритетнее номера."""
+        if response.status != 200:
+            raise ValueError(f"{response.status} для {response.request.url}")
+        trade = dict(response.metadata["trade"])
+        trade.update(resolve_trade_type(parse_general(response.selector()), trade))
+        yield response.follow(
+            trade["trade_url"], callback=self.parse_trade, headers=XHR, metadata={"trade": trade}
+        )
 
     async def parse_trade(self, response: Response) -> Any:
         """Фрагмент лотов торгов: по ``Lot`` на лот; адрес лота — страница торгов."""

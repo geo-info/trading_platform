@@ -17,13 +17,17 @@ from typing import Any
 from collector import Request, Response
 from parsel import Selector
 
-from tp.ruson.base import Ruson, lot_pairs, lot_tables, parse_schedule
+from tp.ruson.base import Ruson, field, lot_pairs, lot_tables, parse_schedule
 
 
 def parse_details(page: Selector) -> dict[str, dict[str, Any]]:
     """Детали каждого лота страницы торгов: номер лота -> пары его таблицы и ``price_schedule``."""
     return {
-        lot_num: {**lot_pairs(table), "price_schedule": parse_schedule(table)}
+        lot_num: {
+            **lot_pairs(table),
+            **({"Тип торгов": field(page, "Тип торгов")} if field(page, "Тип торгов") else {}),
+            "price_schedule": parse_schedule(table),
+        }
         for lot_num, _, table in lot_tables(page)
     }
 
@@ -41,7 +45,10 @@ class RusonDetail(Ruson):
     params = DetailParams()
 
     async def start_requests(self) -> AsyncIterator[Request]:
-        lots = [lot async for lot in self.ctx.sink.pending_detail(self.params.limit)]
+        limit = self.params.limit
+        lots = [lot async for lot in self.ctx.sink.pending_detail(limit + 1 if limit else 0)]
+        self.limit_reached = bool(limit and len(lots) > limit)
+        lots = lots[: limit or None]
         await self.log(f"ждут деталей: {len(lots)} (не больше {self.params.limit})")
         trades: dict[str, list[str]] = defaultdict(list)
         for lot in lots:

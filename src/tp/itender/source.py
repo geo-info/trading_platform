@@ -155,6 +155,6 @@ class Zakazrf(ITender):
     name = "zakazrf"
     DOMAIN = "http://bankrot.zakazrf.ru"
 
-    settings = Settings(concurrency=5, delay=0.5, timeout=60.0, max_errors=50)
+    settings = Settings(concurrency=1, delay=0.5, timeout=60.0, max_errors=10)
 
     params = ITenderParams(max_pages=conf.parsing.max_pages)

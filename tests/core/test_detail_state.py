@@ -58,7 +58,7 @@ async def test_изменение_во_время_запроса_не_теряе
     assert await pending(storage) == ["1"]
 
 
-async def test_детали_не_трогают_updated_at_и_не_затираются_листингом(
+async def test_детали_обновляют_updated_at_и_не_затираются_листингом(
     storage: MongoStorage, clock: Clock
 ) -> None:
     await storage.upsert(LOT)
@@ -66,7 +66,8 @@ async def test_детали_не_трогают_updated_at_и_не_затира�
     await storage.save_detail("1", {"Описание": "дом"}, clock.now())
     await storage.upsert(LOT)
     doc = await storage.collection.find_one({"lot_id": "1"})
-    assert doc["updated_at"] == before
+    assert doc["updated_at"] > before
+    assert doc["listing_changed_at"] == before
     assert doc["detail"] == {"Описание": "дом"}
 
 

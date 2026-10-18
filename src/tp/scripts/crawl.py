@@ -29,7 +29,14 @@ async def crawl(platform: type[Crawler], max_pages: int) -> Result:
             new += await run.storage.upsert(item)
         stats = run.crawl.stats
         await run.log(f"готово: лотов {done}, новых {new}, ошибок {stats.errors} ({stats.reason})")
-        return Result(platform.name, done=done, new=new, errors=stats.errors, reason=stats.reason)
+        return Result(
+            platform.name,
+            done=done,
+            new=new,
+            errors=stats.errors,
+            reason=stats.reason,
+            limited=getattr(run.crawl.crawler, "limit_reached", False),
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

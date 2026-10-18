@@ -22,6 +22,7 @@ from core.conf import conf
 from core.help import clean, digits, local_href
 from core.lot import Lot
 from core.registry import register
+from core.trade_type import normalize_trade_type, number_type, resolve_trade_type
 
 
 def is_trade_number(text: str) -> bool:
@@ -58,7 +59,7 @@ def parse_listing(page: Selector) -> list[dict[str, Any]]:
                 "trade_id": trade_id,
                 "trade_number": number,
                 # После цифр — тире или дефис (``is_trade_number``), за ним тип торгов.
-                "trade_type": clean(number[len(trade_id) :].lstrip()[1:]),
+                **normalize_trade_type(number_type(number), source="listing:number"),
                 "trade_title": title,
                 "trade_url": local_href(trade_url),
                 "bids_end": clean(card.xpath('.//nobr[i[@title="Окончание приема заявок"]]/text()').get()),
@@ -121,7 +122,7 @@ def parse_lots(page: Selector, trade: dict[str, Any]) -> list[dict[str, Any]]:
     shared = {
         "trade_id": trade["trade_id"],
         "trade_number": trade.get("trade_number"),
-        "trade_type": trade.get("trade_type"),
+        **resolve_trade_type(main, trade),
         "debtor": debtor_of(trade.get("trade_title")),
         "organizer": main.get("Наименование"),
         "bids_end": main.get("Окончание приема заявок") or trade.get("bids_end"),
@@ -195,6 +196,7 @@ class Kendo(Crawler):
         if next_page is None:
             await self.log(f"страница {num_page} последняя")
         elif num_page >= self.params.max_pages:
+            self.limit_reached = True
             await self.log(f"дошли до предела max_pages={self.params.max_pages}, дальше не листаем")
         else:
             number, href = next_page

@@ -23,11 +23,11 @@ def test_листинг() -> None:
     first = trades[0]
     assert first["trade_id"] == "10840"
     assert first["trade_number"] == "10840–ОАОФ"
-    assert first["trade_type"] == "ОАОФ"
+    assert first["trade_type"] == "Открытый аукцион с открытой формой представления цены"
     assert first["trade_url"] == "/oaof/10840"
     assert first["bids_end"] == "29.10.2026 00:00:00"
     assert first["trade_title"].endswith("должник Кезарева Диана Юрьевна")
-    assert {t["trade_type"] for t in trades} == {"ОАОФ", "ОТПП"}
+    assert {t["trade_type_code"] for t in trades} == {"ОАОФ", "ОТПП"}
 
 
 def _card(trade_id: int) -> Selector:
@@ -40,7 +40,7 @@ def _card(trade_id: int) -> Selector:
 
 def test_номер_с_дефисом() -> None:
     (trade,) = parse_listing(_card(37))
-    assert trade["trade_type"] == "ОАОФ"
+    assert trade["trade_type_code"] == "ОАОФ"
     assert trade["trade_url"] == "/oaof/37"
 
 
@@ -122,6 +122,7 @@ async def test_max_pages() -> None:
     requests, _ = await _listing_flow(c)
     assert len(requests) == 15
     assert all(r.callback == c.parse_trade for r in requests)
+    assert c.limit_reached is True
 
 
 async def test_parse_trade_отдаёт_lot() -> None:

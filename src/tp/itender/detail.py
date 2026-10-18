@@ -89,7 +89,10 @@ class ITenderDetail(ITender):
     params = DetailParams()
 
     async def start_requests(self) -> AsyncIterator[Request]:
-        lots = [lot async for lot in self.ctx.sink.pending_detail(self.params.limit)]
+        limit = self.params.limit
+        lots = [lot async for lot in self.ctx.sink.pending_detail(limit + 1 if limit else 0)]
+        self.limit_reached = bool(limit and len(lots) > limit)
+        lots = lots[: limit or None]
         await self.log(f"ждут деталей: {len(lots)} (не больше {self.params.limit})")
         for lot in lots:
             yield self.request(lot["lot_url"], metadata={"lot_id": lot["lot_id"]})
@@ -97,7 +100,10 @@ class ITenderDetail(ITender):
     async def parse(self, response: Response) -> Any:
         if response.status != 200:
             raise ValueError(f"{response.status} для {response.request.url}")
-        yield {"lot_id": response.metadata["lot_id"], "detail": parse_detail(response.selector())}
+        detail = parse_detail(response.selector())
+        if not detail.get("Информация о лоте"):
+            raise ValueError(f"Не найдена информация о лоте: {response.request.url}")
+        yield {"lot_id": response.metadata["lot_id"], "detail": detail}
 
 
 def detail_of(platform: type[ITender]) -> type[ITenderDetail]:

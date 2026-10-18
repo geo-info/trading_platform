@@ -91,4 +91,4 @@ def test_незнакомая_площадка_код_2(script, capsys: pytest.C
 
 def test_умолчания() -> None:
     assert crawl.MAX_PAGES == 30
-    assert detail.LIMIT == 100
+    assert detail.LIMIT == 1000

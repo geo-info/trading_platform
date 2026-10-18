@@ -42,6 +42,13 @@ def test_строки_листинга() -> None:
         "status",
         "winner",
         "trade_type",
+        "trade_type_raw",
+        "trade_type_code",
+        "trade_type_source",
+        "trade_kind",
+        "trade_participation",
+        "trade_price_form",
+        "trade_type_conflicts",
     }
 
 
@@ -78,6 +85,9 @@ async def test_max_pages_останавливает() -> None:
     requests, items = await collect(c.parse(respond(c, req, read_fixture(LISTING))))
     assert requests == []
     assert len(items) == 20
+    assert c.limit_reached is True
+    assert "price_value" in items[0]
+    assert "is_active" in items[0]
 
 
 async def test_не_200_ошибка() -> None:

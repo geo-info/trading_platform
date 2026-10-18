@@ -34,7 +34,7 @@ def test_пустой_лот_разбирается_в_none() -> None:
         None,
         None,
         None,
-        True,
+        None,
     )
 
 
@@ -44,8 +44,8 @@ def test_пустой_лот_разбирается_в_none() -> None:
         ("Прием заявок", True),
         ("Приём заявок", True),
         ("Идут торги", True),
-        (None, True),
-        ("что-то новое", True),
+        (None, None),
+        ("что-то новое", None),
         ("Торги завершены", False),
         ("Торги отменены", False),
         ("Торги не состоялись", False),
@@ -54,7 +54,7 @@ def test_пустой_лот_разбирается_в_none() -> None:
         ("Торги приостановлены", False),
     ],
 )
-def test_is_active_status(status: str | None, active: bool) -> None:
+def test_is_active_status(status: str | None, active: bool | None) -> None:
     assert is_active_status(status) is active
 
 

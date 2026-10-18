@@ -22,14 +22,19 @@ CPU. Шестнадцать площадок в одном event loop делил
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from bson import BSON
+from pymongo.errors import DuplicateKeyError
+
 from core.conf import conf
 from core.db.base import KEY_FIELDS, Store, key_of
 from core.db.mongo.client import create_client
+from core.db.mongo.queries import pending_detail_query
+from core.lot_state import detail_fields, listing_fields
 
 
 class MongoStorage(Store):
@@ -75,23 +80,39 @@ class MongoStorage(Store):
         await self.collection.create_index([(field, 1) for field in KEY_FIELDS], unique=True)
         return self
 
-    async def upsert(self, item: Mapping[str, Any]) -> bool:
-        """Записать лот; ``updated_at`` сдвигается, только если лот изменился.
+    async def _write(self, key: dict, reduce: Callable, *, insert: bool = False) -> bool:
+        """CAS: содержимое, ревизия и метки изменения меняются атомарно.
 
-        ``created_at`` и ``updated_at`` ставятся при вставке. При повторном
-        обходе ``$set`` с теми же значениями Mongo считает пустым обновлением
-        (``modified_count == 0``), и ``updated_at`` остаётся прежним: по нему
-        видно, когда на площадке последний раз что-то поменялось — обычно статус.
-        Поэтому в айтеме не должно быть полей, меняющихся на каждом обходе
-        (время загрузки и т. п.), — иначе лот «меняется» всегда.
+        При конфликте перечитываем документ и заново применяем чистое правило.
+        Уникальный индекс защищает одновременно начавшиеся вставки.
         """
-        now = datetime.now(UTC)
+        for _ in range(20):
+            old = await self.collection.find_one(key) or {}
+            if not old and not insert:
+                return False
+            now = datetime.now(UTC)
+            fields = reduce(old, now)
+            if not fields:
+                return False
+            fields.update(revision=old.get("revision", 0) + 1)
+            if not old:
+                try:
+                    await self.collection.insert_one({**key, **fields})
+                    return True
+                except DuplicateKeyError:
+                    continue
+            guard = {**key, "revision": old.get("revision", {"$exists": False})}
+            result = await self.collection.update_one(guard, {"$set": fields})
+            if result.matched_count:
+                return False
+        raise RuntimeError(f"Concurrent update retry limit for {key}")
+
+    async def upsert(self, item: Mapping[str, Any]) -> bool:
+        """Сохранить наблюдение листинга вместе с метками времени."""
         key = key_of(item)
-        update = {"$set": dict(item), "$setOnInsert": {"created_at": now, "updated_at": now}}
-        result = await self.collection.update_one(key, update, upsert=True)
-        if result.modified_count:
-            await self.collection.update_one(key, {"$set": {"updated_at": now}})
-        return result.upserted_id is not None
+        # Сравниваем значения в точности хранения Mongo (UTC, миллисекунды).
+        observed = BSON.encode(dict(item)).decode()
+        return await self._write(key, lambda old, now: listing_fields(old, observed, now), insert=True)
 
     def pending_detail(
         self, limit: int = 0, statuses: list[str] | None = None
@@ -100,18 +121,12 @@ class MongoStorage(Store):
 
         Отдельного состояния («время последнего прогона») нет — оно в самих
         документах. Деталей ещё нет (нет ``detail_at``) — лот новый; лот
-        изменился после них (``updated_at > detail_at``) — детали устарели.
+        изменился после них (``listing_changed_at > detail_at``) — детали устарели.
         Лот, чья страница не открылась, ``detail_at`` не получит и попадёт в
         выборку снова. Свежие — первыми. ``statuses`` — только лоты с этими
         статусами (как их пишет листинг).
         """
-        query: dict[str, Any] = {
-            "source": self.source,
-            "$or": [
-                {"detail_at": {"$exists": False}},
-                {"$expr": {"$gt": ["$updated_at", "$detail_at"]}},
-            ],
-        }
+        query = pending_detail_query(self.source)
         if statuses:
             query["status"] = {"$in": statuses}
         # trade_url — адрес страницы торгов: у kendo, btorg и rus-on детали
@@ -120,23 +135,9 @@ class MongoStorage(Store):
         return self.collection.find(query, projection).sort("created_at", -1).limit(limit)
 
     async def save_detail(self, lot_id: str, detail: Mapping[str, Any] | None, at: datetime) -> None:
-        """Дописать детали к лоту.
-
-        ``at`` — когда страница была *запрошена*, а не записана: если листинг
-        обновил лот, пока шёл запрос, его ``updated_at`` окажется позже, и лот
-        перечитается. ``updated_at`` не трогаем — он значит «лот изменился на
-        площадке», а не «мы дописали детали».
-
-        ``detail=None`` — страница торгов открылась, но лота на ней нет (снят
-        с торгов). Ставится только ``detail_at``: иначе лот стоял бы в
-        ``pending_detail`` вечно и перечитывался каждый прогон. Прежние детали
-        остаются; изменится лот в листинге — детали запросятся снова.
-        """
+        """Сохранить детали; at — нижняя граница времени запроса, не время записи."""
         key = {"source": self.source, "lot_id": lot_id}
-        fields: dict[str, Any] = {"detail_at": at}
-        if detail is not None:
-            fields["detail"] = dict(detail)
-        await self.collection.update_one(key, {"$set": fields})
+        await self._write(key, lambda old, now: detail_fields(old, detail, at, now))
 
     async def count(self) -> int:
         return await self.collection.count_documents({"source": self.source})

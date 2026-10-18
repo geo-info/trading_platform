@@ -21,12 +21,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from core.help import parse_datetime, parse_price
 
-#: Части статусов, означающих, что торги закончены. Всё остальное, включая
-#: незнакомый или пустой статус, считается живым: лот не теряется на сомнении.
+#: Явные признаки неактивных торгов; неизвестный статус остаётся неопределённым.
 FINISHED_MARKERS = (
     "заверш",
     "состоял",
@@ -38,10 +37,14 @@ FINISHED_MARKERS = (
 )
 
 
-def is_active_status(status: str | None) -> bool:
-    """Идут ли ещё торги. Незнакомый или пустой статус — идут."""
+def is_active_status(status: str | None) -> bool | None:
+    """Активность по явному статусу источника; неизвестный статус — None."""
     lowered = (status or "").lower().replace("ё", "е")
-    return not any(marker in lowered for marker in FINISHED_MARKERS)
+    if any(marker in lowered for marker in FINISHED_MARKERS):
+        return False
+    if any(marker in lowered for marker in ("прием заявок", "идут торги")):
+        return True
+    return None
 
 
 class Lot(BaseModel):
@@ -63,6 +66,13 @@ class Lot(BaseModel):
     #: Номер торгов, как его пишет площадка: «10840–ОАОФ».
     trade_number: str | None = None
     trade_type: str | None = None
+    trade_type_raw: str | None = None
+    trade_type_code: str | None = None
+    trade_type_source: str | None = None
+    trade_kind: str | None = None
+    trade_participation: str | None = None
+    trade_price_form: str | None = None
+    trade_type_conflicts: list[dict[str, str]] = Field(default_factory=list)
     auction_name: str | None = None
     lot_num: str | None = None
     description: str | None = None
@@ -96,5 +106,5 @@ class Lot(BaseModel):
 
     @computed_field
     @property
-    def is_active(self) -> bool:
+    def is_active(self) -> bool | None:
         return is_active_status(self.status)
